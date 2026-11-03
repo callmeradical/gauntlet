@@ -76,11 +76,11 @@ the PRD; how → the OpenSpec change.
 ## 5. Hand off
 
 - Commit the PRD and the change on the integration branch.
-- Start the gauntlet (**gauntlet-loop** skill): epsilon for a change with
-  several behaviors, a single alpha ⇄ beta loop for one small task. Pass the
-  PRD and change paths, the integration branch, the project name, a loop id,
-  what to build now versus hold back (e.g. a later migration phase), and the
-  environment constraints.
+- Start the gauntlet (**gauntlet-loop** skill): `gauntlet:epsilon` for a
+  change with several behaviors, a single `gauntlet:alpha` ⇄ `gauntlet:beta`
+  loop for one small task. Pass the PRD and change paths, the integration
+  branch, the project name, a loop id, what to build now versus hold back
+  (e.g. a later migration phase), and the environment constraints.
 - During building, a spec gap a builder would have to guess at stops that
   slice and comes back here as a question for the user; record the answer in
   the PRD or spec, then resume.
