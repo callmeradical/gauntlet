@@ -1,0 +1,115 @@
+<!doctype html>
+<!--
+  Progress page template for gamma (gauntlet: delta → alpha → beta, run by epsilon).
+  Fill every {{PLACEHOLDER}}. Blocks between <!-- repeat: … --> and <!-- /repeat --> repeat once per item;
+  drop the example rows. Use "unknown" for anything not given. Status classes: queued, building, review,
+  hold, pass, merged, stopped. Keep the file self-contained: no scripts, no external assets.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>[{{LOOP_ID}}] {{PROJECT}} · {{CHANGE}} · progress</title>
+<style>
+  :root {
+    --bg: #ffffff; --surface: #f6f7f9; --border: #e3e6ea; --text: #1d2228; --muted: #66707b;
+    --hold: #b45309; --hold-bg: #fef3c7; --pass: #15803d; --pass-bg: #dcfce7;
+    --merged: #1d4ed8; --merged-bg: #dbeafe; --stopped: #b91c1c; --stopped-bg: #fee2e2;
+    --neutral-bg: #eef0f3;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14171b; --surface: #1b1f24; --border: #2b3138; --text: #e6e9ed; --muted: #98a2ad;
+      --hold: #fbbf24; --hold-bg: #3a2a0b; --pass: #4ade80; --pass-bg: #0f2e1a;
+      --merged: #93c5fd; --merged-bg: #132544; --stopped: #fca5a5; --stopped-bg: #3b1414;
+      --neutral-bg: #242a31;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+  main { max-width: 1080px; margin: 0 auto; padding: 32px 24px 64px; }
+  header { border-bottom: 1px solid var(--border); padding-bottom: 16px; margin-bottom: 20px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 32px 0 10px; }
+  .meta { color: var(--muted); font-size: 12px; }
+  .meta code, td code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+  .summary { display: flex; flex-wrap: wrap; gap: 8px 24px; background: var(--surface); border: 1px solid var(--border);
+             border-radius: 6px; padding: 12px 16px; }
+  .summary div { min-width: 140px; }
+  .summary .label { display: block; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  th { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 600; }
+  td.verdict { max-width: 380px; }
+  .status { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 12px; font-weight: 600;
+            background: var(--neutral-bg); color: var(--muted); white-space: nowrap; }
+  .status.hold { background: var(--hold-bg); color: var(--hold); }
+  .status.pass { background: var(--pass-bg); color: var(--pass); }
+  .status.merged { background: var(--merged-bg); color: var(--merged); }
+  .status.stopped { background: var(--stopped-bg); color: var(--stopped); }
+  .gap { display: block; margin-top: 4px; color: var(--hold); font-size: 13px; }
+  ol.timeline { list-style: none; margin: 0; padding: 0; }
+  ol.timeline li { display: grid; grid-template-columns: 64px 1fr; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--border); }
+  ol.timeline time { color: var(--muted); font-variant-numeric: tabular-nums; }
+  ul.open { margin: 0; padding-left: 18px; }
+  ul.open li { margin: 4px 0; }
+  footer { margin-top: 40px; color: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+<main>
+
+<header>
+  <h1>{{PROJECT}} · {{CHANGE}} <span class="meta">loop {{LOOP_ID}}</span></h1>
+  <div class="meta">
+    Integration branch <code>{{INTEGRATION_BRANCH}}</code> · {{REPO_PATH}} · last updated {{UPDATED_LOCAL}}
+  </div>
+</header>
+
+<section class="summary" aria-label="Summary">
+  <div><span class="label">Slices merged</span>{{MERGED}} / {{TOTAL}}</div>
+  <div><span class="label">Tests</span>{{TESTS}}</div>
+  <div><span class="label">Current step</span>{{CURRENT_STEP}}</div>
+  <div><span class="label">Next step</span>{{NEXT_STEP}}</div>
+</section>
+
+<h2>Slices</h2>
+<table>
+  <thead>
+    <tr><th>Slice</th><th>Status</th><th>Round</th><th>Built by</th><th>Latest commit</th><th>Tests</th><th>Latest verdict</th></tr>
+  </thead>
+  <tbody>
+    <!-- repeat: one row per slice, tracer first -->
+    <tr>
+      <td><strong>{{SLICE_NAME}}</strong><br><span class="meta"><code>{{SLICE_BRANCH}}</code></span></td>
+      <td><span class="status {{STATUS_CLASS}}">{{STATUS_LABEL}}</span></td>
+      <td>{{ROUND}}</td>
+      <td>{{BUILDER}}</td>
+      <td><code>{{COMMIT}}</code></td>
+      <td>{{SLICE_TESTS}}</td>
+      <td class="verdict">{{VERDICT}}<!-- for HOLD: <span class="gap">{{HOLD_GAP_VERBATIM}}</span> --></td>
+    </tr>
+    <!-- /repeat -->
+  </tbody>
+</table>
+
+<h2>Timeline</h2>
+<ol class="timeline">
+  <!-- repeat: one item per event, newest first -->
+  <li><time>{{TIME}}</time><span>{{EVENT}}</span></li>
+  <!-- /repeat -->
+</ol>
+
+<h2>Open items</h2>
+<ul class="open">
+  <!-- repeat: in-app checks left to the user, known pre-existing failures, blockers -->
+  <li>{{OPEN_ITEM}}</li>
+  <!-- /repeat -->
+</ul>
+
+<footer>Written by gamma from git, beta's verdicts, and the orchestrator's reports. Facts only.</footer>
+
+</main>
+</body>
+</html>
