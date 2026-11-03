@@ -447,7 +447,7 @@ def worktree_rm(loop, slice=None):
         others = [
             other["loop"]
             for other in running_loops()
-            if other["loop"] != loop and _same_path(_integration_worktree(other), repo)
+            if other["loop"] != loop and _same_path(_wt_integration_worktree(other), repo)
         ]
         if others:
             reasons.append("repo of running loop %s" % ", ".join(others))
@@ -480,7 +480,7 @@ def _slice_branch(loop, slice):
     return "gauntlet/%s/%s" % (loop, slice)
 
 
-def _integration_worktree(state):
+def _wt_integration_worktree(state):
     """The loop's integration worktree as recorded: `integration_worktree`, else `repo` (Q1a).
 
     Legacy files may keep them apart (`repo` the main checkout, `integration_worktree` a linked worktree).
@@ -490,7 +490,7 @@ def _integration_worktree(state):
 
 def _loop_repo(state):
     """The loop's integration worktree as a real path; unknown_loop if the state records none."""
-    repo = _integration_worktree(state)
+    repo = _wt_integration_worktree(state)
     if not repo:
         raise GauntletError("unknown_loop", "loop %r records no repo" % state["loop"], loop=state["loop"], reason="no repo")
     return os.path.realpath(repo)
