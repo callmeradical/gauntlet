@@ -339,12 +339,220 @@ def config_read(repo):
 
 def worktree_new(loop, slice):
     """Create the slice's worktree and branch from the loop's integration branch."""
-    raise GauntletError("not_implemented", "worktree_new is not implemented yet")
+    validate_id(slice, "slice")
+    state = load_loop(loop)
+    repo = _loop_repo(state)
+    integration = state["integration_branch"]
+    shared = config_read(repo)["config"]["shared"]
+    main = main_worktree(repo)
+    path = _slice_path(main, loop, slice)
+    branch = _slice_branch(loop, slice)
+
+    if os.path.lexists(path):
+        raise GauntletError("exists", "%s already exists" % path, path=path)
+    if _branch_exists(repo, branch):
+        raise GauntletError("exists", "branch %s already exists" % branch, branch=branch)
+    missing = [entry for entry in shared if not os.path.exists(os.path.join(repo, entry))]
+    if missing:
+        raise GauntletError(
+            "config_invalid",
+            "shared folders missing in the integration worktree %s: %s" % (repo, ", ".join(missing)),
+            path=os.path.join(repo, CONFIG_NAME),
+            fields={"shared": "missing in %s: %s" % (repo, ", ".join(missing))},
+        )
+    base = run_git(repo, "rev-parse", "--verify", integration + "^{commit}")
+
+    run_git(repo, "worktree", "add", "-q", "-b", branch, path, base)
+    links = []
+    try:
+        for entry in shared:
+            link = os.path.join(path, entry)
+            if os.path.lexists(link):
+                raise GauntletError(
+                    "exists", "%s already exists in the new worktree (is %s tracked?)" % (link, entry), path=link
+                )
+            os.makedirs(os.path.dirname(link), exist_ok=True)
+            os.symlink(os.path.join(repo, entry), link)
+            links.append(link)
+        _exclude(path, shared)
+    except BaseException:
+        for link in links:
+            os.unlink(link)
+        run_git(repo, "worktree", "remove", path)
+        run_git(repo, "branch", "-D", branch)  # just created at `base`; it holds no work
+        raise
+
+    state = load_loop(loop)
+    entry = state.setdefault("slices", {}).setdefault(slice, {})
+    entry.update(worktree=path, branch=branch)
+    entry.pop("removed", None)
+    save_loop(state)
+    return {"loop": loop, "slice": slice, "worktree": path, "branch": branch, "base": base, "shared": shared}
 
 
 def worktree_rm(loop, slice=None):
-    """Remove merged slice worktrees (or one slice's); keep and report unmerged or dirty ones."""
-    raise GauntletError("not_implemented", "worktree_rm is not implemented yet")
+    """Remove merged slice worktrees (or one slice's); keep and report unmerged or dirty ones.
+
+    With no slice, the loop's integration worktree is removed too when it is a linked worktree (never
+    the main checkout), clean, fully merged into the integration branch, not the repo of another
+    running loop (Q1), and none of the loop's slices was kept (Q1b). The integration branch is never
+    deleted.
+    """
+    state = load_loop(loop)
+    slices = state.get("slices") or {}
+    if slice is not None:
+        validate_id(slice, "slice")
+        if slice not in slices:
+            raise GauntletError(
+                "unknown_loop", "loop %r has no slice %r" % (loop, slice), loop=loop, slice=slice, reason="no such slice"
+            )
+    repo = _loop_repo(state)
+    integration = state["integration_branch"]
+    main = main_worktree(repo)
+    removed, kept = [], []
+
+    for name in [slice] if slice is not None else sorted(slices):
+        path = slices[name].get("worktree") or _slice_path(main, loop, name)
+        branch = slices[name].get("branch") or _slice_branch(loop, name)
+        report = {"slice": name, "worktree": path, "branch": branch}
+        try:
+            reasons, commits = _blockers(repo, integration, path, branch)
+            if os.path.realpath(path) == main:
+                reasons.insert(0, "main checkout")
+            elif os.path.realpath(path) == repo:
+                reasons.insert(0, "integration worktree")
+            if branch == integration:
+                reasons.append("integration branch")
+            if not reasons:
+                if os.path.isdir(path):
+                    run_git(repo, "worktree", "remove", path)
+                if _branch_exists(repo, branch):
+                    # -D, not -d: rev-list proved the branch is merged into the integration branch,
+                    # which need not be the branch checked out where git runs.
+                    run_git(repo, "branch", "-D", branch)
+        except GauntletError as exc:
+            reasons, commits = ["git failed: %s" % exc.message], []
+        if reasons:
+            kept.append(dict(report, reason=", ".join(reasons), commits=commits))
+        else:
+            removed.append(report)
+
+    if slice is None:
+        report = {"slice": None, "worktree": repo, "branch": integration}
+        reasons, commits = _blockers(main, integration, repo, None)
+        if kept:
+            reasons.insert(0, "slices kept")  # Q1b: kept slices may link to its shared folders
+        if repo == main:
+            reasons.insert(0, "main checkout")
+        others = [
+            other["loop"]
+            for other in running_loops()
+            if other["loop"] != loop and _same_path(_wt_integration_worktree(other), repo)
+        ]
+        if others:
+            reasons.append("repo of running loop %s" % ", ".join(others))
+        if not reasons:
+            try:
+                run_git(main, "worktree", "remove", repo)
+            except GauntletError as exc:
+                reasons = ["git failed: %s" % exc.message]
+        if reasons:
+            kept.append(dict(report, reason=", ".join(reasons), commits=commits))
+        else:
+            removed.append(report)
+
+    names = [report["slice"] for report in removed if report["slice"] is not None]
+    if names:
+        stamp = now_iso()
+        state = load_loop(loop)
+        for name in names:
+            state.setdefault("slices", {}).setdefault(name, {})["removed"] = stamp
+        save_loop(state)
+    return {"removed": removed, "kept": kept}
+
+
+def _slice_path(main, loop, slice):
+    """<parent of main worktree>/<main worktree basename>-<loop>-<slice>."""
+    return os.path.join(os.path.dirname(main), "%s-%s-%s" % (os.path.basename(main), loop, slice))
+
+
+def _slice_branch(loop, slice):
+    return "gauntlet/%s/%s" % (loop, slice)
+
+
+def _wt_integration_worktree(state):
+    """The loop's integration worktree as recorded: `integration_worktree`, else `repo` (Q1a).
+
+    Legacy files may keep them apart (`repo` the main checkout, `integration_worktree` a linked worktree).
+    """
+    return state.get("integration_worktree") or state.get("repo")
+
+
+def _loop_repo(state):
+    """The loop's integration worktree as a real path; unknown_loop if the state records none."""
+    repo = _wt_integration_worktree(state)
+    if not repo:
+        raise GauntletError("unknown_loop", "loop %r records no repo" % state["loop"], loop=state["loop"], reason="no repo")
+    return os.path.realpath(repo)
+
+
+def _same_path(path, other):
+    return bool(path) and os.path.realpath(path) == other
+
+
+def _branch_exists(repo, branch):
+    try:
+        run_git(repo, "rev-parse", "--verify", "--quiet", "refs/heads/" + branch)
+    except GauntletError:
+        return False
+    return True
+
+
+def _blockers(repo, integration, path, branch):
+    """(reasons, commits) that stop removing worktree `path` and `branch` (None: no branch to delete).
+
+    commits are those missing from the integration branch, on `branch` or on the worktree's HEAD
+    (which catches a detached HEAD). A worktree with uncommitted or untracked changes is dirty;
+    ignored files, such as the shared links, don't count.
+    """
+    reasons, commits = [], []
+    tips = []
+    if os.path.isdir(path):
+        if run_git(path, "status", "--porcelain"):
+            reasons.append("dirty")
+        tips.append((path, "HEAD"))
+    if branch is not None and _branch_exists(repo, branch):
+        tips.append((repo, branch))
+    for cwd, tip in tips:
+        for sha in run_git(cwd, "rev-list", "%s..%s" % (integration, tip)).split():
+            if sha not in commits:
+                commits.append(sha)
+    if commits:
+        reasons.insert(0, "unmerged (%d commits)" % len(commits))
+    return reasons, commits
+
+
+def _exclude(worktree, shared):
+    """Add an anchored `/<entry>` line per shared folder to the repo's common info/exclude, if missing.
+
+    Only the common file works: git ignores info/exclude in a linked worktree's own git dir (Q2).
+    """
+    path = run_git(worktree, "rev-parse", "--git-path", "info/exclude")
+    path = os.path.join(worktree, path)
+    try:
+        with open(path, encoding="utf-8") as f:
+            text = f.read()
+    except FileNotFoundError:
+        text = ""
+    present = {line.strip() for line in text.split("\n")}
+    wanted = ["/" + entry for entry in shared if "/" + entry not in present]
+    if not wanted:
+        return
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "a", encoding="utf-8") as f:
+        if text and not text.endswith("\n"):
+            f.write("\n")
+        f.write("".join(line + "\n" for line in wanted))
 
 
 # ============================================================================
