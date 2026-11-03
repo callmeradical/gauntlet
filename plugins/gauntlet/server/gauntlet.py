@@ -352,14 +352,134 @@ def worktree_rm(loop, slice=None):
 # ============================================================================
 
 
+import contextlib
+import fcntl
+
+LOCK_STALE = datetime.timedelta(minutes=30)
+
+
+def _lock_target(loop):
+    """(lock path, main worktree, integration branch) for the loop, from its state."""
+    state = load_loop(loop)
+    repo = state.get("repo") or state.get("integration_worktree")
+    branch = state.get("integration_branch")
+    if not (isinstance(repo, str) and repo and isinstance(branch, str) and branch):
+        raise GauntletError(
+            "unknown_loop",
+            "loop %r has no repo and integration branch in its state" % loop,
+            loop=loop,
+            reason="state has no repo or integration_branch",
+        )
+    main = main_worktree(repo)
+    name = "%s--%s.lock" % (os.path.basename(main), branch.replace("/", "%2F"))
+    return os.path.join(state_dir(), name), main, branch
+
+
+def _read_lock(path):
+    """The lock file's content plus `stale`, or None if there is no lock file.
+
+    An unreadable lock (for example one caught mid-write) has holder None and is dated by its mtime.
+    """
+    try:
+        with open(path, encoding="utf-8") as f:
+            text = f.read()
+        mtime = os.stat(path).st_mtime
+    except FileNotFoundError:
+        return None
+    try:
+        data = json.loads(text)
+    except ValueError:
+        data = None
+    if not isinstance(data, dict):
+        data = {"loop": None}
+    taken = _parse_time(data.get("acquired"))
+    if taken is None:
+        taken = datetime.datetime.fromtimestamp(mtime).astimezone()
+        data["acquired"] = taken.isoformat(timespec="seconds")
+    data["stale"] = datetime.datetime.now().astimezone() - taken >= LOCK_STALE
+    return data
+
+
+def _parse_time(value):
+    if not isinstance(value, str):
+        return None
+    try:
+        moment = datetime.datetime.fromisoformat(value[:-1] + "+00:00" if value.endswith("Z") else value)
+    except ValueError:
+        return None
+    return moment if moment.utcoffset() is not None else moment.astimezone()
+
+
+@contextlib.contextmanager
+def _locks_guard():
+    """Serialize lock operations across processes (flock on the state folder) so takeovers can't race."""
+    folder = state_dir()
+    os.makedirs(folder, exist_ok=True)
+    fd = os.open(folder, os.O_RDONLY)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        yield
+    finally:
+        os.close(fd)
+
+
+def _write_lock(path, content, replace):
+    """Create the lock file with O_CREAT|O_EXCL, or atomically replace one this call may take over."""
+    text = json.dumps(content, indent=2) + "\n"
+    if not replace:
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(text)
+        return
+    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path), prefix=".lock.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(text)
+        os.replace(tmp, path)
+    except BaseException:
+        os.unlink(tmp)
+        raise
+
+
 def lock_acquire(loop):
-    """Take the merge lock for the loop's repo and integration branch."""
-    raise GauntletError("not_implemented", "lock_acquire is not implemented yet")
+    """Take the merge lock for the loop's repo and integration branch.
+
+    Refused while another loop holds a lock younger than 30 minutes; a stale lock is taken over, and
+    the holder re-acquiring refreshes the time.
+    """
+    path, main, branch = _lock_target(loop)
+    with _locks_guard():
+        current = _read_lock(path)
+        if current is not None and current.get("loop") != loop and not current["stale"]:
+            raise GauntletError(
+                "lock_held",
+                "the merge lock for %s %s is held by loop %r since %s"
+                % (os.path.basename(main), branch, current.get("loop"), current["acquired"]),
+                holder=current.get("loop"),
+                acquired=current["acquired"],
+                lock=path,
+            )
+        content = {"loop": loop, "repo": main, "branch": branch, "acquired": now_iso()}
+        _write_lock(path, content, replace=current is not None)
+    return dict(content, lock=path)
 
 
 def lock_release(loop):
-    """Release the merge lock the loop holds."""
-    raise GauntletError("not_implemented", "lock_release is not implemented yet")
+    """Release the merge lock the loop holds; only the holder can release it."""
+    path, main, branch = _lock_target(loop)
+    with _locks_guard():
+        current = _read_lock(path)
+        if current is None or current.get("loop") != loop:
+            holder = current.get("loop") if current else None
+            raise GauntletError(
+                "not_holder",
+                "loop %r does not hold the merge lock for %s %s (holder: %s)"
+                % (loop, os.path.basename(main), branch, holder or "none"),
+                holder=holder,
+                lock=path,
+            )
+        os.unlink(path)
+    return {"released": True, "lock": path}
 
 
 # ============================================================================
