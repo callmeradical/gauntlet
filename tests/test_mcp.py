@@ -112,6 +112,24 @@ class ProtocolTest(McpTestCase):
         self.assertEqual(reply["error"]["code"], -32700)
         self.assertEqual(client.request("ping")["result"], {})
 
+    def test_invalid_utf8_input_is_parse_error_and_server_keeps_running(self):
+        client = self.client()
+        client.proc.stdin.buffer.write(b"\xff\xfe\n")
+        client.proc.stdin.buffer.flush()
+        reply = client.read_message()
+        self.assertEqual(reply["jsonrpc"], "2.0")
+        self.assertIsNone(reply["id"])
+        self.assertEqual(reply["error"]["code"], -32700)
+        self.assertEqual(client.request("ping")["result"], {})
+        self.assertIsNone(client.proc.poll())
+
+    def test_invalid_utf8_inside_a_json_string_is_parse_error(self):
+        client = self.client()
+        client.proc.stdin.buffer.write(b'{"jsonrpc":"2.0","id":7,"method":"ping","params":{"x":"\xff"}}\n')
+        client.proc.stdin.buffer.flush()
+        self.assertEqual(client.read_message()["error"]["code"], -32700)
+        self.assertEqual(client.request("ping")["result"], {})
+
     def test_non_object_message_is_invalid_request(self):
         client = self.client()
         client.send_raw("[1, 2]")

@@ -7,7 +7,6 @@ Run with no arguments to serve MCP over stdio; run with arguments for the CLI
 
 import argparse
 import datetime
-import io
 import json
 import os
 import re
@@ -515,13 +514,16 @@ def handle_message(message):
 
 
 def serve(stdin, stdout):
-    """MCP stdio loop: one JSON-RPC message per line in, one per line out."""
-    for line in iter(stdin.readline, ""):
+    """MCP stdio loop: one JSON-RPC message per line in (stdin is binary), one per line out.
+
+    Each line is decoded as UTF-8 inside the parse step, so invalid bytes get -32700 like bad JSON.
+    """
+    for line in iter(stdin.readline, b""):
         if not line.strip():
             continue
         try:
-            message = json.loads(line)
-        except ValueError:
+            message = json.loads(line.decode("utf-8"))
+        except ValueError:  # includes UnicodeDecodeError
             reply = _mcp_error(None, -32700, "Parse error")
         else:
             reply = handle_message(message)
@@ -596,7 +598,7 @@ def run_cli(argv):
 def main(argv=None):
     argv = sys.argv[1:] if argv is None else argv
     if not argv:
-        serve(io.TextIOWrapper(sys.stdin.buffer, encoding="utf-8"), sys.stdout)
+        serve(sys.stdin.buffer, sys.stdout)
         return 0
     return run_cli(argv)
 
