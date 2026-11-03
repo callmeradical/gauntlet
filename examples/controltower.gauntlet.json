@@ -1,0 +1,11 @@
+{
+  "integration_branch": "feat/decision-tree",
+  "shared": ["node_modules"],
+  "checks": [
+    {"name": "test", "command": "npx vitest run"},
+    {"name": "build:ts", "command": "npm run build:ts"},
+    {"name": "build:app", "command": "npm run build:app"},
+    {"name": "typecheck", "command": "npx tsc --noEmit -p src/renderer"}
+  ],
+  "setup": "npm run rebuild:node"
+}
