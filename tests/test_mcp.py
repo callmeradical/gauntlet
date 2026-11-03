@@ -130,6 +130,27 @@ class ProtocolTest(McpTestCase):
         self.assertEqual(client.read_message()["error"]["code"], -32700)
         self.assertEqual(client.request("ping")["result"], {})
 
+    def test_non_object_params_are_invalid_params_and_server_keeps_running(self):
+        client = self.client()
+        for method, params in (("initialize", ["2025-06-18"]), ("tools/list", [1]), ("tools/call", "status"), ("ping", 3)):
+            reply = client.request(method, params)
+            self.assertEqual(reply.get("error", {}).get("code"), -32602, (method, params, reply))
+        self.assertEqual(client.request("ping")["result"], {})
+        self.assertIsNone(client.proc.poll())
+
+    def test_non_string_tool_name_is_invalid_params(self):
+        reply = self.client().request("tools/call", {"name": ["status"], "arguments": {}})
+        self.assertEqual(reply["error"]["code"], -32602)
+
+    def test_trailing_newline_loop_id_is_refused_over_mcp(self):
+        repo = helpers.make_repo(self.home, "proj", config=CONFIG)
+        client = self.client()
+        self.assertFalse(client.call("loop_start", {"loop": "pri", "repo": repo, "change": "a"})[0])
+        is_error, payload = client.call("loop_start", {"loop": "pri\n", "repo": repo, "change": "b"})
+        self.assertTrue(is_error)
+        self.assertEqual(payload["error"], "invalid_id")
+        self.assertEqual(os.listdir(os.path.join(self.home, ".local", "state", "gauntlet")), ["pri.json"])
+
     def test_non_object_message_is_invalid_request(self):
         client = self.client()
         client.send_raw("[1, 2]")

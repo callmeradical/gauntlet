@@ -150,11 +150,18 @@ class LoopStartTest(StateTestCase):
         self.assertEqual(self.read_state("pri"), state)
 
     def test_loop_ids_must_be_kebab_case_up_to_24_chars(self):
-        for bad in ("Pri", "pri_fixes", "-pri", "pri-", "a--b", "pri fixes", "", "x" * 25, "../etc"):
+        for bad in ("Pri", "pri_fixes", "-pri", "pri-", "a--b", "pri fixes", "", "x" * 25, "../etc", "pri\n", "a\n"):
             err = self.error_of(self.server.loop_start, loop=bad, repo=self.repo, change="c")
             self.assertEqual(err["error"], "invalid_id", bad)
         self.assertEqual(self.start(loop="a" * 24)["loop"], "a" * 24)
         self.assertEqual(self.start(loop="pri-2-fixes", change="other")["loop"], "pri-2-fixes")
+
+    def test_trailing_newline_cannot_bypass_the_duplicate_id_check(self):
+        self.start(loop="pri", change="one")
+        other = helpers.make_repo(self.home, "other", config=CONFIG)
+        err = self.error_of(self.server.loop_start, loop="pri\n", repo=other, change="two")
+        self.assertEqual(err["error"], "invalid_id")
+        self.assertEqual(os.listdir(self.server.state_dir()), ["pri.json"])
 
     def test_missing_config_reports_config_missing_and_writes_nothing(self):
         bare = helpers.make_repo(self.home, "bare")
@@ -235,12 +242,21 @@ class LoopUpdateTest(StateTestCase):
     def test_slice_fields_need_a_valid_slice_name(self):
         self.start()
         self.assertEqual(self.error_of(self.server.loop_update, loop="pri", status="merged")["error"], "invalid_id")
-        err = self.error_of(self.server.loop_update, loop="pri", slice="Bad Slice", status="merged")
-        self.assertEqual(err["error"], "invalid_id")
+        for bad in ("Bad Slice", "tracer\n", "a\n"):
+            err = self.error_of(self.server.loop_update, loop="pri", slice=bad, status="merged")
+            self.assertEqual(err["error"], "invalid_id", repr(bad))
         self.assertEqual(self.read_state("pri")["slices"], {})
 
 
 class LoopEndTest(StateTestCase):
+    def test_bad_status_is_a_gauntlet_error_and_changes_nothing(self):
+        self.start()
+        before = self.read_state("pri")
+        err = self.error_of(self.server.loop_end, loop="pri", status="finished")
+        self.assertEqual(err["error"], "invalid_id")
+        self.assertIn("finished", err["message"])
+        self.assertEqual(self.read_state("pri"), before)
+
     def test_records_final_status_and_end_time(self):
         self.start()
         for status in ("done", "stopped", "failed"):

@@ -51,7 +51,7 @@ def now_iso():
 
 def validate_id(value, kind="loop"):
     """Loop and slice ids are kebab-case, at most 24 characters."""
-    if not isinstance(value, str) or len(value) > ID_MAX or not ID_PATTERN.match(value):
+    if not isinstance(value, str) or len(value) > ID_MAX or not ID_PATTERN.fullmatch(value):
         raise GauntletError(
             "invalid_id",
             "%s id %r must be kebab-case (a-z, 0-9, single hyphens), at most %d characters" % (kind, value, ID_MAX),
@@ -207,7 +207,12 @@ def loop_update(
 def loop_end(loop, status):
     """Mark the loop done, stopped or failed and record when it ended."""
     if status not in END_STATUSES:
-        raise ValueError("status must be one of %s" % ", ".join(END_STATUSES))
+        raise GauntletError(
+            "invalid_id",
+            "end status %r must be one of %s" % (status, ", ".join(END_STATUSES)),
+            kind="status",
+            allowed=list(END_STATUSES),
+        )
     state = load_loop(loop)
     state["status"] = status
     state["ended"] = now_iso()
@@ -437,8 +442,8 @@ class InvalidParams(Exception):
 
 def _check_arguments(name, args):
     """Validate tool arguments against the tool's input schema; null values count as absent."""
-    if name not in TOOLS:
-        raise InvalidParams("unknown tool %r" % name)
+    if not isinstance(name, str) or name not in TOOLS:
+        raise InvalidParams("unknown tool %r" % (name,))
     if not isinstance(args, dict):
         raise InvalidParams("arguments must be an object")
     schema = TOOLS[name][2]
@@ -485,7 +490,11 @@ def handle_message(message):
     if "id" not in message:
         return None
     message_id, method = message["id"], message["method"]
-    params = message.get("params") or {}
+    params = message.get("params")
+    if params is None:
+        params = {}
+    if not isinstance(params, dict):
+        return _mcp_error(message_id, -32602, "Invalid params: params must be an object")
     if method == "initialize":
         return _mcp_result(
             message_id,
