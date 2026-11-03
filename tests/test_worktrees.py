@@ -6,6 +6,8 @@ Scenarios: "Worktrees are created the same way every time" (Shared folder) and
 
 import json
 import os
+import subprocess
+import sys
 import unittest
 
 import helpers
@@ -258,8 +260,11 @@ class WorktreeRmTest(WorktreeTestCase):
         self.assertEqual(sorted(kept[0]["commits"]), sorted(unmerged))
         self.assertIn("unmerged", kept[0]["reason"])
         for name in ("api", "docs"):
-            self.assertFalse(os.path.exists(os.path.join(self.home, "proj-pri-" + name)))
-            self.assertNotIn("gauntlet/pri/" + name, self.branches())
+            path = os.path.join(self.home, "proj-pri-" + name)
+            self.assertNotIn(path, self.worktree_paths())
+            self.assertFalse(os.path.exists(path))
+            self.assertEqual(helpers.git(self.repo, "branch", "--list", "gauntlet/pri/" + name), "")
+        self.assertIn(os.path.join(self.home, "proj-pri-ui"), self.worktree_paths())
         self.assertTrue(os.path.isfile(os.path.join(self.home, "proj-pri-ui", "ui2.txt")))
         self.assertIn("gauntlet/pri/ui", self.branches())
 
@@ -385,6 +390,20 @@ class IntegrationWorktreeRemovalTest(WorktreeTestCase):
         self.assertIn("other", kept[0]["reason"])
         self.assertTrue(os.path.isdir(self.integration))
 
+    def test_integration_worktree_is_kept_while_any_slice_is_kept(self):
+        # Amendment Q1b: kept slices may link to the integration worktree's shared folders.
+        ui = self.new("ui")["worktree"]
+        self.commit(ui, "ui.txt", "ui\n")
+        result = self.server.worktree_rm(loop="pri")
+        self.assertEqual([entry["slice"] for entry in result["removed"]], ["api"])
+        kept = {entry["slice"]: entry for entry in result["kept"]}
+        self.assertEqual(set(kept), {"ui", None})
+        self.assertEqual(kept[None]["reason"], "slices kept")
+        self.assertEqual(kept[None]["worktree"], self.integration)
+        self.assertEqual(kept[None]["branch"], "feat/x")
+        self.assertIn(self.integration, self.worktree_paths())
+        self.assertTrue(os.path.isfile(os.path.join(ui, "node_modules", "left-pad", "index.js")))
+
     def test_main_checkout_as_integration_worktree_is_kept_and_reported(self):
         self.server.loop_start(loop="mainline", repo=self.repo, change="main-change")
         result = self.server.worktree_rm(loop="mainline")
@@ -409,6 +428,28 @@ class WorktreeInterfacesTest(WorktreeTestCase):
             is_error, err = client.call("worktree_new", {"loop": "nope", "slice": "api"})
             self.assertTrue(is_error)
             self.assertEqual(err["error"], "unknown_loop")
+
+    def test_cli_removes_one_merged_slice_with_stdin_closed(self):
+        # Removing a slice after its merge succeeds without the user: no terminal, nothing on stdin.
+        self.start()
+        api = self.new("api")["worktree"]
+        self.commit(api, "api.txt", "api\n")
+        self.merge("gauntlet/pri/api")
+        proc = subprocess.run(
+            [sys.executable, helpers.SERVER, "worktree", "rm", "pri", "api"],
+            env=dict(os.environ),
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
+            timeout=helpers.TIMEOUT,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        removed = json.loads(proc.stdout)["removed"]
+        self.assertEqual(removed, [{"slice": "api", "worktree": api, "branch": "gauntlet/pri/api"}])
+        self.assertNotIn(api, self.worktree_paths())
+        self.assertNotIn(api, helpers.git(self.repo, "worktree", "list"))
+        self.assertEqual(helpers.git(self.repo, "branch", "--list", "gauntlet/pri/api"), "")
 
     def test_cli_new_and_rm_print_the_tool_result(self):
         self.start()

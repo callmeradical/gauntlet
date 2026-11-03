@@ -394,8 +394,9 @@ def worktree_rm(loop, slice=None):
     """Remove merged slice worktrees (or one slice's); keep and report unmerged or dirty ones.
 
     With no slice, the loop's integration worktree is removed too when it is a linked worktree (never
-    the main checkout), clean, fully merged into the integration branch, and not the repo of another
-    running loop (Q1). The integration branch is never deleted.
+    the main checkout), clean, fully merged into the integration branch, not the repo of another
+    running loop (Q1), and none of the loop's slices was kept (Q1b). The integration branch is never
+    deleted.
     """
     state = load_loop(loop)
     slices = state.get("slices") or {}
@@ -439,6 +440,8 @@ def worktree_rm(loop, slice=None):
     if slice is None:
         report = {"slice": None, "worktree": repo, "branch": integration}
         reasons, commits = _blockers(main, integration, repo, None)
+        if kept:
+            reasons.insert(0, "slices kept")  # Q1b: kept slices may link to its shared folders
         if repo == main:
             reasons.insert(0, "main checkout")
         others = [
