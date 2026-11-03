@@ -52,7 +52,8 @@ The gauntlet grew in one day out of loose files:
 1d. alpha's definition tells it zeta exists: when to consult it (a design choice the slice brief and the codebase's patterns don't settle), how (start `gauntlet:zeta` with one specific question and the relevant files), and that zeta is the only agent alpha may start. alpha decides; zeta's answer is advice, and alpha notes in its hand-back which design questions it asked.
 2. Agents and skills find the template and the command inside the plugin, not by a path in the user's home folder.
 2b. The plugin bundles the `tdd` skill (Matt Pocock's, MIT, `mattpocock/skills` `skills/engineering/tdd`) with its license notice and attribution, text unchanged apart from link paths. alpha's definition directs it to follow that skill rather than restating it, with one override: the seams under test are the ones the OpenSpec change defines (its spec scenarios and the interfaces in its design), carried into each slice brief by delta, not confirmed with the user. beta's bar checks that every scenario in a slice has a test at those seams.
-2a. All five agent definitions, including alpha and beta, are written as task directives, without personification, and keep their current behavior.
+2c. The plugin also bundles the `codebase-design` skill (same source and license as `tdd`, with `DEEPENING.md` and `DESIGN-IT-TWICE.md`), credited and unchanged apart from link paths. zeta follows it for module, seam, interface, and depth vocabulary.
+2a. All six agent definitions, including alpha and beta, are written as task directives, without personification, and keep their current behavior.
 
 ### Worktrees and loops
 
@@ -91,3 +92,4 @@ After installing, the agents and skills appear as today. Starting work is unchan
 8. How does alpha get TDD guidance? *Decided (2026-11-03): bundle the `tdd` skill with the plugin and reference it from alpha; don't summarize it.*
 9. Who agrees the seams the tdd skill tests at? *Decided (2026-11-03): the OpenSpec change does: its scenarios and design interfaces are the seams; delta carries them into each slice brief; the user isn't asked.*
 10. What does zeta do? *Decided (2026-11-03): answers alpha's design questions only when asked, narrowly, grounded in the repo first; advisory only; no contact with beta or its bar.*
+11. Does the plugin bundle `codebase-design` for zeta? *Decided (2026-11-03): yes, credited with its MIT notice like `tdd`.*
