@@ -80,8 +80,9 @@ class ReadmeTest(unittest.TestCase):
         owner_repo = repository.split("github.com/", 1)[1]
         self.assertIn("/plugin marketplace add %s" % owner_repo, self.readme)
 
-    def test_github_access_for_the_private_repo(self):
-        for text in ("gh auth login", "gh auth setup-git", "SSH key"):
+    def test_public_repo_needs_no_credentials_to_install(self):
+        self.assertIn("The repo is public", self.readme)
+        for text in ("gh auth login", "gh auth setup-git"):
             self.assertIn(text, self.readme)
 
     def test_dedicated_clone_and_terminal_link(self):

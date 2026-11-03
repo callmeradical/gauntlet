@@ -67,25 +67,22 @@ On every machine:
 
 ## Publishing (once, from this Mac)
 
-The repo is private, at `callmeradical/gauntlet`, and is its own marketplace. Publish it only when you've decided to; nothing in this repo does it for you. From the repo at `~/Dev/gauntlet`:
+The repo is public, at `callmeradical/gauntlet`, and is its own marketplace. Publish it only when you've decided to; nothing in this repo does it for you. From the repo at `~/Dev/gauntlet`:
 
 ```sh
 cd ~/Dev/gauntlet
-gh repo create callmeradical/gauntlet --private --source . --remote origin --push
+gh repo create callmeradical/gauntlet --public --source . --remote origin --push
 ```
 
-The plugin's `license` is `UNLICENSED`, which suits a private personal repo. Change it before you share the repo with anyone.
+The repo is MIT-licensed (`LICENSE`). The bundled `tdd` and `codebase-design` skills keep their own MIT notices from `mattpocock/skills`.
 
 ## Install on a machine
 
 Do this Mac first, then your other machines, Linux included. The steps are the same on each machine; nothing is platform-specific.
 
-### 1. GitHub access to the private repo
+### 1. GitHub access
 
-Claude Code and git both need to read `callmeradical/gauntlet`. Choose one:
-
-- **gh:** run `gh auth login`, then `gh auth setup-git`, so plain `git` over HTTPS uses gh's credentials.
-- **SSH:** add a passphrase-free SSH key to the `callmeradical` GitHub account, then check it with `ssh -T git@github.com`. The key needs no passphrase because Claude Code clones without prompting.
+The repo is public, so installing and updating need no GitHub credentials. Only pushing changes does: sign in as `callmeradical` with `gh auth login`, then `gh auth setup-git`, so plain `git` over HTTPS uses gh's credentials.
 
 ### 2. A dedicated clone at `~/Dev/gauntlet`
 

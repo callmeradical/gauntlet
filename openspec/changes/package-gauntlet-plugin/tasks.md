@@ -17,7 +17,7 @@
 - [x] 3.3 Agents: copy the five definitions into `agents/`, update for `gauntlet:` names, server tools, slice cleanup after merge, `config_read` checks, and the template via `${CLAUDE_PLUGIN_ROOT}`; de-personify alpha and beta; alpha follows `tdd` with the OpenSpec-seam and refactor-on-feedback overrides and knows when and how to consult zeta; beta's bar includes scenario coverage and the tdd anti-patterns; verify with a test for frontmatter names, `Agent` in epsilon's and alpha's tools and not in beta's or zeta's, the zeta and tdd references, and no "You are" phrasing or home-folder paths
 - [ ] 3.3a zeta: write `agents/zeta.md` (answer-only, repo-first grounding with file citations, `codebase-design` vocabulary, no writes, no spawning, no contact with beta); verify with the same definition test and a manual round where alpha asks one composition question in a scratch repo
 - [x] 3.3b Bundle `tdd` and `codebase-design` from `mattpocock/skills` at a recorded commit (reference files under `references/`, links rewritten, MIT `LICENSE`, source attribution); verify with a test that links resolve inside the plugin and each folder has the license
-- [ ] 3.4 Smoke test: `claude --plugin-dir plugins/gauntlet` lists the six `gauntlet:` agents, the four skills, and the server's tools; verify by running it non-interactively and recording the output in the PR notes
+- [x] 3.4 Smoke test: `claude --plugin-dir plugins/gauntlet` lists the six `gauntlet:` agents, the four skills, and the server's tools; verify by running it non-interactively and recording the output in the PR notes *(2026-11-03, main session: `claude plugin validate` passes for plugin and marketplace; `claude -p --plugin-dir plugins/gauntlet` lists gauntlet:alpha, beta, delta, epsilon, gamma, zeta; skills gauntlet:intake, gauntlet-loop, tdd, codebase-design; nine tools mcp__plugin_gauntlet_gauntlet__{config_read,lock_acquire,lock_release,loop_end,loop_start,loop_update,status,worktree_new,worktree_rm}, each once)*
 
 ## 4. Setup and cutover
 
@@ -27,5 +27,5 @@
 
 ## 5. Release (user go-ahead required)
 
-- [ ] 5.1 Create private `callmeradical/gauntlet`, push, add marketplace and install on this Mac *(needs the user's go-ahead)*
+- [ ] 5.1 Create public `callmeradical/gauntlet` (MIT), push, add marketplace and install on this Mac *(needs the user's go-ahead)*
 - [ ] 5.2 When no loop runs: cutover dry-run, cutover, and commit ControlTower's `.gauntlet.json`; verify `gauntlet:*` agents resolve and `gauntlet status` works *(needs the user's go-ahead)*

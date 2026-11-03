@@ -72,7 +72,7 @@ The gauntlet grew in one day out of loose files:
 
 ### Install and update
 
-9. The plugin installs from the private repo `callmeradical/gauntlet`, which is also its marketplace: this Mac first, then the user's other machines. The README documents each machine's setup, including GitHub access for the private repo.
+9. The plugin installs from the public repo `callmeradical/gauntlet`, which is also its marketplace: this Mac first, then the user's other machines. The README documents each machine's setup.
 10. Updating the plugin never changes a loop already running.
 11. Once installed, the plugin is the single source: Claude Code's loose copies are removed, and other tools' copies are symlinks into the plugin repo. The switch happens only while no loop is running.
 
@@ -82,7 +82,7 @@ After installing, the agents and skills appear as today. Starting work is unchan
 
 ## Open questions
 
-1. *Decided (2026-11-03):* where it lives: a private repo that is also its own marketplace, `callmeradical/gauntlet`.
+1. *Decided (2026-11-03):* where it lives: a repo that is also its own marketplace, `callmeradical/gauntlet`. *Revised (2026-11-03): public, MIT-licensed.*
 1a. *Decided (2026-11-03):* the package follows the Agent Plugins 1.0.0 spec (https://agent-plugins.org/specification), with Claude Code's own manifest and agents alongside, since agents are outside that spec's core.
 2. What replaces the loose copies: remove `~/.claude/agents/{alpha,beta,gamma,delta,epsilon}.md`, the dotfiles copies, and the skill symlinks once the plugin is installed, or keep any? *Decided (2026-11-03): in Claude Code, remove `~/.claude/agents/{alpha,beta,gamma,delta,epsilon}.md` and the `~/.claude/skills/{intake,gauntlet-loop}` links once the plugin is installed (they would take precedence over the plugin's). For other tools, `~/.augy/skills/{intake,gauntlet-loop}` and `~/.agents/agents/*.md` become symlinks into the plugin repo, dropped for any tool that loads Agent Plugins directly. The switch waits until no loop is running.*
 3. How is the `gauntlet` command delivered: a portable MCP server (works in any Agent Plugins client and in Claude Code) or a Claude-only script on PATH? *Decided (2026-11-03): a portable MCP server declared in `mcp.json`, written as one Python file using only the standard library, which also runs as a command-line tool (`gauntlet status`).*

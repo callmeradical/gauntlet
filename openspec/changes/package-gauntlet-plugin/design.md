@@ -53,7 +53,7 @@ Today's sources: agents in `~/.claude/agents/{alpha,beta,gamma,delta,epsilon}.md
 ## Migration Plan
 
 1. Build and test in the repo; load with `claude --plugin-dir plugins/gauntlet` and smoke-test.
-2. With the user's go-ahead: create private `callmeradical/gauntlet` and push.
+2. With the user's go-ahead: create public `callmeradical/gauntlet` (MIT) and push.
 3. On this Mac: add the marketplace, install, link `~/.local/bin/gauntlet`.
 4. When `gauntlet status` shows no running loop: `scripts/cutover.py --dry-run`, then run it. Rollback: `--rollback <backup dir>` and uninstall the plugin.
 5. Commit ControlTower's `.gauntlet.json` (after its running loop ends).

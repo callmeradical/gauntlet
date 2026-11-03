@@ -6,7 +6,7 @@ context: |
   progress-page template, and a gauntlet MCP server for worktrees, locks, and loop state.
   The package must conform to Agent Plugins 1.0.0 (https://agent-plugins.org/specification) for its
   portable parts (skills, MCP) and also install as a Claude Code plugin and marketplace
-  (private repo callmeradical/gauntlet). Agents are Claude Code-only (outside Agent Plugins v1).
+  (public repo callmeradical/gauntlet, MIT). Agents are Claude Code-only (outside Agent Plugins v1).
   Runtime dependencies: Python 3 standard library and git only; must run on macOS and Linux.
   Agent definitions are written as task directives, never personified.
   Changes to the user's live setup (~/.claude, ~/.augy, ~/.agents) happen only while no loop is

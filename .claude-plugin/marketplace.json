@@ -1,5 +1,6 @@
 {
   "name": "gauntlet",
+  "description": "The gauntlet: a build/review agent workflow (slice, build, review, report, orchestrate) packaged as one plugin.",
   "owner": {
     "name": "Lars Cromley"
   },

@@ -7,7 +7,7 @@ Installing the plugin on a machine and switching from the loose agent and skill 
 ## ADDED Requirements
 
 ### Requirement: Each machine has documented setup
-The README SHALL document, per machine: GitHub access for the private repo (gh login and setup-git, or a passphrase-free SSH key), adding the marketplace and installing the plugin in Claude Code, putting `gauntlet` on the terminal PATH, and running the cutover.
+The README SHALL document, per machine: that the public repo needs no credentials to install, and GitHub sign-in (gh login and setup-git) only for pushing, adding the marketplace and installing the plugin in Claude Code, putting `gauntlet` on the terminal PATH, and running the cutover.
 
 #### Scenario: New machine
 - **WHEN** the user follows the README on a machine with Claude Code, Python 3, and git
