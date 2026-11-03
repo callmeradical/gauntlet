@@ -518,32 +518,28 @@ def _held_locks():
     return held
 
 
-def _integration_counts(state, path, running_repos):
-    """Q1: a finished loop's integration worktree counts only if it is linked, clean, has no commits
-    missing from the integration branch, and is not the repo of another running loop."""
-    if path in running_repos:
-        return False
-    if _read_git(path, "status", "--porcelain") != "":
-        return False
-    integration_branch = state.get("integration_branch")
-    if not isinstance(integration_branch, str):
-        return False
-    return _read_git(path, "rev-list", "%s..HEAD" % integration_branch, "--") == ""
+def _integration_worktree(state):
+    """The loop's integration worktree: `integration_worktree`, else `repo` (legacy files keep the main
+    checkout in `repo`), as a real path; None if the state has neither."""
+    path = state.get("integration_worktree") or state.get("repo")
+    return os.path.realpath(path) if isinstance(path, str) else None
 
 
-def _loop_worktrees(state, finished, running_repos):
-    """Worktrees of the loop that exist on disk: the integration worktree (never the main checkout;
-    for finished loops only under Q1), then slice worktrees from state."""
-    found = []
-    integration = state.get("integration_worktree") or state.get("repo")
-    if isinstance(integration, str) and os.path.isdir(integration):
-        path = os.path.realpath(integration)
+def _loop_worktrees(state):
+    """(integration entry or None, slice entries) for the loop's worktrees that exist on disk.
+
+    The integration worktree is listed only when it is a linked worktree, never the main checkout.
+    """
+    integration = None
+    path = _integration_worktree(state)
+    if path and os.path.isdir(path):
         try:
             linked = main_worktree(path) != path
         except GauntletError:
             linked = False
-        if linked and (not finished or _integration_counts(state, path, running_repos)):
-            found.append({"name": "integration", "path": path, "branch": _worktree_branches(path).get(path)})
+        if linked:
+            integration = {"name": "integration", "path": path, "branch": _worktree_branches(path).get(path)}
+    found = []
     slices = state.get("slices")
     for name, info in (slices.items() if isinstance(slices, dict) else ()):
         worktree = info.get("worktree") if isinstance(info, dict) else None
@@ -552,7 +548,7 @@ def _loop_worktrees(state, finished, running_repos):
         path = os.path.realpath(worktree)
         branch = _worktree_branches(path).get(path) or info.get("branch")
         found.append({"name": name, "path": path, "branch": branch})
-    return found
+    return integration, found
 
 
 def _worktree_branches(path):
@@ -573,13 +569,12 @@ def status():
     locks = _held_locks()
     entries = []
     for state in loops:
-        running_repos = set()
-        for other in loops:
-            other_repo = other.get("repo") or other.get("integration_worktree")
-            if other is not state and other.get("status") == "running" and isinstance(other_repo, str):
-                running_repos.add(os.path.realpath(other_repo))
+        in_use = {_integration_worktree(o) for o in loops if o is not state and o.get("status") == "running"}
         finished = state.get("status") in END_STATUSES
-        worktrees = _loop_worktrees(state, finished, running_repos)
+        integration, slices = _loop_worktrees(state)
+        worktrees = ([integration] if integration else []) + slices
+        # Q1a: a finished loop's integration worktree is a leftover unless another running loop uses it.
+        leftover = finished and bool(slices or (integration and integration["path"] not in in_use))
         entries.append(
             {
                 "loop": state["loop"],
@@ -588,7 +583,7 @@ def status():
                 "phase": state.get("phase"),
                 "status": state.get("status"),
                 "finished": finished,
-                "leftover": finished and bool(worktrees),
+                "leftover": leftover,
                 "worktrees": worktrees,
                 "lock": locks.get(state["loop"]),
             }

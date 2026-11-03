@@ -122,34 +122,127 @@ class FinishedLoopTest(StatusTestCase):
 
 
 class IntegrationWorktreeRuleTest(StatusTestCase):
-    """Q1: a finished loop's integration worktree counts only if linked, clean, merged and not in use."""
+    """Q1a: a linked integration worktree is listed whenever it exists; for a finished loop it is a
+    leftover unless it is the integration worktree of another running loop. Clean or merged doesn't matter."""
 
-    def test_dirty_integration_worktree_of_a_finished_loop_is_not_counted(self):
+    def test_dirty_integration_worktree_of_a_finished_loop_is_listed_and_a_leftover(self):
         integration = self.integration_worktree()
         self.start("a", integration)
         self.server.loop_end(loop="a", status="done")
         with open(os.path.join(integration, "scratch.txt"), "w") as f:
             f.write("uncommitted\n")
         entry = self.entry("a")
-        self.assertEqual((entry["worktrees"], entry["leftover"]), ([], False))
+        self.assertEqual(entry["worktrees"], [{"name": "integration", "path": integration, "branch": BRANCH}])
+        self.assertTrue(entry["leftover"])
 
-    def test_integration_worktree_with_commits_missing_from_the_integration_branch_is_not_counted(self):
+    def test_integration_worktree_with_commits_missing_from_the_integration_branch_is_a_leftover(self):
         integration = self.integration_worktree()
         self.start("a", integration)
         self.server.loop_end(loop="a", status="done")
         helpers.git(integration, "checkout", "-q", "--detach")
         helpers.git(integration, "commit", "-q", "--allow-empty", "-m", "not on the integration branch")
         entry = self.entry("a")
-        self.assertEqual((entry["worktrees"], entry["leftover"]), ([], False))
+        self.assertEqual(entry["worktrees"], [{"name": "integration", "path": integration, "branch": None}])
+        self.assertTrue(entry["leftover"])
 
-    def test_integration_worktree_used_by_another_running_loop_is_not_counted(self):
+    def test_integration_worktree_used_by_another_running_loop_is_listed_but_not_a_leftover(self):
         integration = self.integration_worktree()
         self.start("a", integration, change="one")
         self.server.loop_end(loop="a", status="done")
         self.start("b", integration, change="two")
+        listed = [{"name": "integration", "path": integration, "branch": BRANCH}]
         done, running = self.entry("a"), self.entry("b")
-        self.assertEqual((done["worktrees"], done["leftover"]), ([], False))
-        self.assertEqual(running["worktrees"], [{"name": "integration", "path": integration, "branch": BRANCH}])
+        self.assertEqual((done["worktrees"], done["leftover"]), (listed, False))
+        self.assertEqual((running["worktrees"], running["leftover"]), (listed, False))
+
+    def test_a_slice_worktree_left_still_makes_a_finished_loop_with_a_shared_integration_worktree_a_leftover(self):
+        integration = self.integration_worktree()
+        self.start("a", integration, change="one")
+        path, branch = self.slice_worktree("a", "s1", integration)
+        self.server.loop_end(loop="a", status="done")
+        self.start("b", integration, change="two")
+        entry = self.entry("a")
+        self.assertTrue(entry["leftover"])
+        self.assertEqual(
+            entry["worktrees"],
+            [
+                {"name": "integration", "path": integration, "branch": BRANCH},
+                {"name": "s1", "path": path, "branch": branch},
+            ],
+        )
+
+
+class WikiAskShapedLegacyTest(StatusTestCase):
+    """Legacy files like the live wiki-ask.json: `loop` key, no schema, `repo` is the main checkout and the
+    linked integration worktree is only in `integration_worktree`."""
+
+    def wiki_ask(self, loop, status, integration, slices):
+        return {
+            "loop": loop,
+            "project": "controltower",
+            "repo": self.repo,
+            "change": "wiki-ask",
+            "integration_branch": BRANCH,
+            "integration_worktree": integration,
+            "phase": "done" if status == "done" else "build",
+            "status": status,
+            "baseline": "0d22149",
+            "plan": "openspec/changes/wiki-ask/slices.%s.md" % loop,
+            "events": [{"at": "2026-11-01T09:00:00-08:00", "what": "slices planned"}],
+            "slices": slices,
+        }
+
+    def removed_slices(self, loop):
+        """Slices whose worktrees were removed after merging, as in a finished live loop."""
+        return {
+            name: {
+                "worktree": os.path.join(self.home, "controltower-%s-%s" % (loop, name)),
+                "branch": "gauntlet/%s/%s" % (loop, name),
+                "status": "merged",
+                "round": 2,
+                "commit": "4f1c2aa",
+                "verdict": "PASS",
+            }
+            for name in ("tracer", "ask-ui")
+        }
+
+    def write_done_wiki_ask(self, integration):
+        state = self.wiki_ask("wiki-ask", "done", integration, self.removed_slices("wiki-ask"))
+        self.write_state_file("wiki-ask.json", state)
+
+    def expected_done_entry(self, integration):
+        return {
+            "loop": "wiki-ask",
+            "repo": self.repo,
+            "change": "wiki-ask",
+            "phase": "done",
+            "status": "done",
+            "finished": True,
+            "leftover": True,
+            "worktrees": [{"name": "integration", "path": integration, "branch": BRANCH}],
+            "lock": None,
+        }
+
+    def test_done_legacy_loop_lists_its_integration_worktree_as_a_leftover(self):
+        integration = self.integration_worktree()
+        self.write_done_wiki_ask(integration)
+        self.assertEqual(self.server.status(), {"loops": [self.expected_done_entry(integration)]})
+
+    def test_done_legacy_loop_with_a_dirty_integration_worktree_still_lists_it_as_a_leftover(self):
+        integration = self.integration_worktree()
+        self.write_done_wiki_ask(integration)
+        with open(os.path.join(integration, "untracked.txt"), "w") as f:
+            f.write("not committed\n")
+        self.assertEqual(self.server.status(), {"loops": [self.expected_done_entry(integration)]})
+
+    def test_running_legacy_loop_sharing_the_integration_worktree_keeps_the_done_loop_from_flagging_it(self):
+        integration = self.integration_worktree()
+        self.write_done_wiki_ask(integration)
+        self.write_state_file("pri-fixes.json", self.wiki_ask("pri-fixes", "running", integration, {}))
+        listed = [{"name": "integration", "path": integration, "branch": BRANCH}]
+        done, running = self.entry("wiki-ask"), self.entry("pri-fixes")
+        self.assertEqual((done["finished"], done["worktrees"], done["leftover"]), (True, listed, False))
+        self.assertEqual((running["finished"], running["worktrees"], running["leftover"]), (False, listed, False))
 
 
 class RunningLoopTest(StatusTestCase):
