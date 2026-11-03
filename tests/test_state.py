@@ -275,6 +275,90 @@ class LoopEndTest(StateTestCase):
         self.assertEqual(self.error_of(self.server.loop_end, loop="nope", status="done")["error"], "unknown_loop")
 
 
+def loop_id_file(repo, change):
+    """The live shape that keys its id as `loop_id` (amendment Q4a)."""
+    return {
+        "loop_id": "pri-contract",
+        "repo": repo,
+        "change": change,
+        "status": "running",
+        "phase": "tracer",
+        "slices": {},
+        "integration_branch": "feat/decision-tree",
+        "plan": "openspec/changes/pri-contract/slices.md",
+        "events": [{"at": "2026-11-03T15:00:00-08:00", "what": "tracer started"}],
+    }
+
+
+class LoopFileRuleTest(StateTestCase):
+    """Amendment Q4a: a loop file has a `loop`, `loop_id` or `status` key; id is loop, else loop_id, else the name."""
+
+    def test_loop_id_file_blocks_a_duplicate_id(self):
+        self.write_state_file("pri-contract.json", loop_id_file("/elsewhere/controltower", "contract"))
+        err = self.error_of(self.server.loop_start, loop="pri-contract", repo=self.repo, change="new")
+        self.assertEqual((err["error"], err["running"]), ("duplicate_loop", "pri-contract"))
+
+    def test_loop_id_file_blocks_a_duplicate_change(self):
+        self.write_state_file("pri-contract.json", loop_id_file(self.repo, "contract"))
+        err = self.error_of(self.server.loop_start, loop="other", repo=self.repo, change="contract")
+        self.assertEqual((err["error"], err["running"]), ("duplicate_loop", "pri-contract"))
+        self.assertFalse(os.path.exists(self.state_path("other")))
+
+    def test_loop_id_file_is_running_with_its_id(self):
+        self.write_state_file("pri-contract.json", loop_id_file(self.repo, "contract"))
+        running = self.server.running_loops()
+        self.assertEqual([s["loop"] for s in running], ["pri-contract"])
+        self.assertEqual(running[0]["loop_id"], "pri-contract")
+        self.assertEqual(running[0]["phase"], "tracer")
+
+    def test_status_only_file_counts_with_its_id_from_the_filename(self):
+        self.write_state_file("bare-loop.json", {"status": "running", "repo": self.repo, "change": "bare"})
+        self.assertEqual([s["loop"] for s in self.server.running_loops()], ["bare-loop"])
+        err = self.error_of(self.server.loop_start, loop="bare-loop", repo=self.repo, change="x")
+        self.assertEqual((err["error"], err["running"]), ("duplicate_loop", "bare-loop"))
+        err = self.error_of(self.server.loop_start, loop="y", repo=self.repo, change="bare")
+        self.assertEqual((err["error"], err["running"]), ("duplicate_loop", "bare-loop"))
+
+    def test_id_precedence_is_loop_then_loop_id_then_name(self):
+        self.write_state_file("file-a.json", {"loop": "by-loop", "loop_id": "by-loop-id", "status": "done"})
+        self.write_state_file("file-b.json", {"loop_id": "by-loop-id", "status": "done"})
+        self.write_state_file("file-c.json", {"status": "done"})
+        self.assertEqual(sorted(s["loop"] for s in self.server.list_loops()), ["by-loop", "by-loop-id", "file-c"])
+
+    def test_objects_without_id_or_status_are_not_loops(self):
+        self.write_state_file("notes.json", {"something": "else"})
+        self.assertEqual(self.server.list_loops(), [])
+
+    def test_corrupt_and_array_files_are_skipped(self):
+        self.write_state_file("x.json", "{corrupt")
+        self.write_state_file("arr.json", '[{"loop": "a", "status": "running"}]')
+        self.write_state_file("pri-contract.json", loop_id_file(self.repo, "contract"))
+        self.assertEqual([s["loop"] for s in self.server.list_loops()], ["pri-contract"])
+        self.assertEqual([s["loop"] for s in self.server.running_loops()], ["pri-contract"])
+
+    def test_load_loop_on_a_corrupt_or_non_object_file_is_unknown_loop_with_a_reason(self):
+        self.write_state_file("x.json", "{corrupt")
+        self.write_state_file("arr.json", "[1, 2]")
+        for loop in ("x", "arr"):
+            err = self.error_of(self.server.load_loop, loop=loop)
+            self.assertEqual(err["error"], "unknown_loop", loop)
+            self.assertTrue(err["reason"], loop)
+
+    def test_load_loop_gives_loop_id_files_their_id(self):
+        self.write_state_file("pri-contract.json", loop_id_file(self.repo, "contract"))
+        self.assertEqual(self.server.load_loop("pri-contract")["loop"], "pri-contract")
+
+    def test_update_of_a_loop_id_file_keeps_its_keys_and_file(self):
+        fixture = loop_id_file(self.repo, "contract")
+        self.write_state_file("pri-contract.json", fixture)
+        self.server.loop_update(loop="pri-contract", phase="build")
+        saved = self.read_state("pri-contract")
+        self.assertEqual(saved["phase"], "build")
+        for key in ("loop_id", "events", "plan", "status", "change"):
+            self.assertEqual(saved[key], fixture[key], key)
+        self.assertEqual(os.listdir(self.server.state_dir()), ["pri-contract.json"])
+
+
 class StateFolderTest(StateTestCase):
     def test_state_dir_follows_home_on_every_call(self):
         first = self.server.state_dir()

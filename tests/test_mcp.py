@@ -151,6 +151,18 @@ class ProtocolTest(McpTestCase):
         self.assertEqual(payload["error"], "invalid_id")
         self.assertEqual(os.listdir(os.path.join(self.home, ".local", "state", "gauntlet")), ["pri.json"])
 
+    def test_corrupt_state_file_is_an_error_result_not_a_crash(self):
+        folder = os.path.join(self.home, ".local", "state", "gauntlet")
+        os.makedirs(folder)
+        with open(os.path.join(folder, "x.json"), "w") as f:
+            f.write("{corrupt")
+        client = self.client()
+        is_error, payload = client.call("loop_update", {"loop": "x", "phase": "build"})
+        self.assertTrue(is_error)
+        self.assertEqual(payload["error"], "unknown_loop")
+        self.assertTrue(payload["reason"])
+        self.assertEqual(client.request("ping")["result"], {})
+
     def test_non_object_message_is_invalid_request(self):
         client = self.client()
         client.send_raw("[1, 2]")

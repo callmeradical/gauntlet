@@ -3,6 +3,8 @@
 import json
 import os
 import stat
+import subprocess
+import tempfile
 import unittest
 
 import helpers
@@ -102,6 +104,42 @@ class ConfigCommandTest(CliTestCase):
             is_error, payload = client.call("config_read", {"repo": bad})
         self.assertTrue(is_error)
         self.assertEqual(self.fails("config", bad), payload)
+
+
+class CorruptStateTest(CliTestCase):
+    def test_corrupt_state_file_is_error_json_and_exit_1(self):
+        folder = os.path.join(self.home, ".local", "state", "gauntlet")
+        os.makedirs(folder)
+        with open(os.path.join(folder, "x.json"), "w") as f:
+            f.write("{corrupt")
+        err = self.fails("loop", "end", "x", "done")
+        self.assertEqual(err["error"], "unknown_loop")
+        self.assertTrue(err["reason"])
+
+
+class PathLinkTest(CliTestCase):
+    def test_cli_runs_through_a_symlink_on_path(self):
+        bin_dir = tempfile.mkdtemp(dir=self.home)
+        link = os.path.join(bin_dir, "gauntlet")
+        os.symlink(os.path.join(helpers.PLUGIN, "server", "gauntlet.py"), link)
+        env = dict(os.environ, HOME=self.home, PATH=bin_dir + os.pathsep + os.environ.get("PATH", ""))
+        proc = subprocess.run(
+            ["gauntlet", "config", self.repo],
+            env=env,
+            cwd=self.home,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
+            timeout=helpers.TIMEOUT,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(
+            json.loads(proc.stdout),
+            {
+                "path": os.path.join(self.repo, ".gauntlet.json"),
+                "config": {"integration_branch": "main", "shared": ["node_modules"], "checks": [], "setup": None},
+            },
+        )
 
 
 class WiringTest(CliTestCase):

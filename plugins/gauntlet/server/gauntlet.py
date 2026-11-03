@@ -92,14 +92,44 @@ def _state_path(loop):
     return os.path.join(state_dir(), validate_id(loop) + ".json")
 
 
+LOOP_KEYS = ("loop", "loop_id", "status")
+
+
+def _as_loop(name, data):
+    """The state dict if `data` is a loop file's content, else None (amendment Q4a).
+
+    A loop file holds a JSON object with a `loop`, `loop_id` or `status` key. Its id is `loop`,
+    else `loop_id`, else the file name without `.json`; the id is set as `loop` in the returned dict.
+    """
+    if not isinstance(data, dict) or not any(key in data for key in LOOP_KEYS):
+        return None
+    for key in ("loop", "loop_id"):
+        if isinstance(data.get(key), str) and data[key]:
+            data["loop"] = data[key]
+            break
+    else:
+        data["loop"] = name
+    return data
+
+
 def load_loop(loop):
-    """The loop's state dict (legacy files included); unknown_loop if there is none."""
+    """The loop's state dict (legacy files included); unknown_loop, with a reason, if there is none."""
     path = _state_path(loop)
+
+    def unknown(reason):
+        return GauntletError("unknown_loop", "no loop %r in %s: %s" % (loop, state_dir(), reason), loop=loop, reason=reason)
+
     try:
         with open(path, encoding="utf-8") as f:
-            return json.load(f)
+            data = json.load(f)
     except FileNotFoundError:
-        raise GauntletError("unknown_loop", "no loop %r in %s" % (loop, state_dir()), loop=loop)
+        raise unknown("no state file")
+    except (OSError, ValueError) as exc:
+        raise unknown("%s is unreadable or not valid JSON: %s" % (path, exc))
+    state = _as_loop(loop, data)
+    if state is None:
+        raise unknown("%s is not a loop file (needs an object with a loop, loop_id or status key)" % path)
+    return state
 
 
 def save_loop(state):
@@ -120,7 +150,7 @@ def save_loop(state):
 
 
 def list_loops():
-    """Every loop state in the state dir: *.json files holding an object with a `loop` key."""
+    """Every loop in the state dir: top-level *.json loop files (see _as_loop); others are skipped."""
     folder = state_dir()
     try:
         names = sorted(os.listdir(folder))
@@ -136,8 +166,9 @@ def list_loops():
                 data = json.load(f)
         except (OSError, ValueError):
             continue
-        if isinstance(data, dict) and "loop" in data:
-            loops.append(data)
+        state = _as_loop(name[: -len(".json")], data)
+        if state is not None:
+            loops.append(state)
     return loops
 
 
