@@ -487,9 +487,113 @@ def lock_release(loop):
 # ============================================================================
 
 
+def _read_git(path, *args):
+    """git output without taking optional locks (status never writes, not even an index refresh); None on failure."""
+    try:
+        return run_git(path, "--no-optional-locks", *args)
+    except GauntletError:
+        return None
+
+
+def _held_locks():
+    """{loop id: lock} for every readable lock file in the state folder."""
+    folder = state_dir()
+    try:
+        names = sorted(os.listdir(folder))
+    except OSError:
+        return {}
+    held = {}
+    for name in names:
+        path = os.path.join(folder, name)
+        if not name.endswith(".lock") or not os.path.isfile(path):
+            continue
+        try:
+            lock = _read_lock(path)
+        except OSError:
+            continue
+        if lock is not None and isinstance(lock.get("loop"), str):
+            entry = {"lock": path}
+            entry.update(lock)
+            held.setdefault(lock["loop"], entry)
+    return held
+
+
+def _integration_counts(state, path, running_repos):
+    """Q1: a finished loop's integration worktree counts only if it is linked, clean, has no commits
+    missing from the integration branch, and is not the repo of another running loop."""
+    if path in running_repos:
+        return False
+    if _read_git(path, "status", "--porcelain") != "":
+        return False
+    integration_branch = state.get("integration_branch")
+    if not isinstance(integration_branch, str):
+        return False
+    return _read_git(path, "rev-list", "%s..HEAD" % integration_branch, "--") == ""
+
+
+def _loop_worktrees(state, finished, running_repos):
+    """Worktrees of the loop that exist on disk: the integration worktree (never the main checkout;
+    for finished loops only under Q1), then slice worktrees from state."""
+    found = []
+    integration = state.get("integration_worktree") or state.get("repo")
+    if isinstance(integration, str) and os.path.isdir(integration):
+        path = os.path.realpath(integration)
+        try:
+            linked = main_worktree(path) != path
+        except GauntletError:
+            linked = False
+        if linked and (not finished or _integration_counts(state, path, running_repos)):
+            found.append({"name": "integration", "path": path, "branch": _worktree_branches(path).get(path)})
+    slices = state.get("slices")
+    for name, info in (slices.items() if isinstance(slices, dict) else ()):
+        worktree = info.get("worktree") if isinstance(info, dict) else None
+        if not isinstance(worktree, str) or not os.path.isdir(worktree):
+            continue
+        path = os.path.realpath(worktree)
+        branch = _worktree_branches(path).get(path) or info.get("branch")
+        found.append({"name": name, "path": path, "branch": branch})
+    return found
+
+
+def _worktree_branches(path):
+    """{worktree path: branch} for the repo containing `path` (detached worktrees are left out)."""
+    listing = _read_git(path, "worktree", "list", "--porcelain") or ""
+    branches, current = {}, None
+    for line in listing.splitlines():
+        if line.startswith("worktree "):
+            current = os.path.realpath(line[len("worktree ") :])
+        elif line.startswith("branch refs/heads/") and current:
+            branches[current] = line[len("branch refs/heads/") :]
+    return branches
+
+
 def status():
-    """Every loop with its worktrees and lock; finished loops with leftovers are flagged."""
-    raise GauntletError("not_implemented", "status is not implemented yet")
+    """Every loop with its worktrees and lock; finished loops with leftovers are flagged. Never writes."""
+    loops = list_loops()
+    locks = _held_locks()
+    entries = []
+    for state in loops:
+        running_repos = set()
+        for other in loops:
+            other_repo = other.get("repo") or other.get("integration_worktree")
+            if other is not state and other.get("status") == "running" and isinstance(other_repo, str):
+                running_repos.add(os.path.realpath(other_repo))
+        finished = state.get("status") in END_STATUSES
+        worktrees = _loop_worktrees(state, finished, running_repos)
+        entries.append(
+            {
+                "loop": state["loop"],
+                "repo": state.get("repo") or state.get("integration_worktree"),
+                "change": state.get("change"),
+                "phase": state.get("phase"),
+                "status": state.get("status"),
+                "finished": finished,
+                "leftover": finished and bool(worktrees),
+                "worktrees": worktrees,
+                "lock": locks.get(state["loop"]),
+            }
+        )
+    return {"loops": entries}
 
 
 # ============================================================================
