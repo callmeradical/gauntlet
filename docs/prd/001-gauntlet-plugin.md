@@ -44,9 +44,11 @@ The gauntlet grew in one day out of loose files:
 
 ### Contents
 
+0. The gauntlet has six agents: delta (slice), alpha (build), beta (review), gamma (progress), epsilon (orchestrate), and zeta (design advisor to alpha).
 1. The plugin conforms to Agent Plugins 1.0.0: a root `plugin.json`, the skills intake and gauntlet-loop as Agent Skills, and any MCP server in `mcp.json`. The progress-page template ships inside a skill.
 1a. The same repo installs as a Claude Code plugin and marketplace, adding the agents delta, alpha, beta, gamma, and epsilon, which Agent Plugins 1.0.0 doesn't cover. Skills are shared by both formats, not duplicated.
 1b. Instructions refer to the agents by their installed names (for example `gauntlet:alpha`).
+1c. **zeta** answers alpha's design questions (inheritance vs composition, polymorphism, public/private, imported/exported, DRY, SOLID, and the like) only when alpha asks, limited to the question, grounded first in the codebase's existing patterns (citing files), then the language's conventions, then general principles. It reads code, writes none, starts no agents, and never grades alpha's work. beta never consults zeta, and zeta never sees beta's bar.
 2. Agents and skills find the template and the command inside the plugin, not by a path in the user's home folder.
 2b. The plugin bundles the `tdd` skill (Matt Pocock's, MIT, `mattpocock/skills` `skills/engineering/tdd`) with its license notice and attribution, text unchanged apart from link paths. alpha's definition directs it to follow that skill rather than restating it, with one override: the seams under test are the ones the OpenSpec change defines (its spec scenarios and the interfaces in its design), carried into each slice brief by delta, not confirmed with the user. beta's bar checks that every scenario in a slice has a test at those seams.
 2a. All five agent definitions, including alpha and beta, are written as task directives, without personification, and keep their current behavior.
@@ -87,3 +89,4 @@ After installing, the agents and skills appear as today. Starting work is unchan
 7. Should alpha and beta, the user's original definitions, be rewritten as task directives like the others? *Decided (2026-11-03): yes; same behavior, wording reviewed against the originals.*
 8. How does alpha get TDD guidance? *Decided (2026-11-03): bundle the `tdd` skill with the plugin and reference it from alpha; don't summarize it.*
 9. Who agrees the seams the tdd skill tests at? *Decided (2026-11-03): the OpenSpec change does: its scenarios and design interfaces are the seams; delta carries them into each slice brief; the user isn't asked.*
+10. What does zeta do? *Decided (2026-11-03): answers alpha's design questions only when asked, narrowly, grounded in the repo first; advisory only; no contact with beta or its bar.*
