@@ -1,0 +1,11 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "gauntlet",
+  "version": "0.1.0",
+  "description": "Build/review loop with separated roles: agents that slice, build, review, report on and orchestrate an OpenSpec change, a design advisor, the intake and gauntlet-loop skills, and an MCP server and CLI for loops, worktrees, merge locks and status.",
+  "author": {
+    "name": "Lars Cromley"
+  },
+  "repository": "https://github.com/callmeradical/gauntlet",
+  "license": "UNLICENSED"
+}
