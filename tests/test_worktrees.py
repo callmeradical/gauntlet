@@ -414,6 +414,94 @@ class IntegrationWorktreeRemovalTest(WorktreeTestCase):
         self.assertTrue(os.path.isdir(self.repo))
 
 
+class LegacySplitRepoTest(WorktreeTestCase):
+    """Q1a: the integration worktree is `integration_worktree`, else `repo`.
+
+    The live wiki-ask.json keeps them apart: `repo` is the main checkout, `integration_worktree` a
+    linked worktree. Here the integration worktree's config and shared folders differ from the main
+    checkout's, so reading `repo` first would pick the wrong ones.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.integration = self.linked_integration()
+        config = {"integration_branch": "feat/x", "shared": ["node_modules", "cache"]}
+        with open(os.path.join(self.integration, ".gauntlet.json"), "w") as f:
+            json.dump(config, f)
+        helpers.git(self.integration, "commit", "-q", "-am", "integration config")
+        os.makedirs(os.path.join(self.integration, "cache"))
+        with open(os.path.join(self.integration, "node_modules", "integration-only.js"), "w") as f:
+            f.write("2\n")
+
+    def write_legacy(self, loop, change, status="running"):
+        """A hand-written loop file in the wiki-ask shape: `loop` key, no schema, split repo paths."""
+        self.write_state(
+            loop,
+            {
+                "loop": loop,
+                "project": "proj",
+                "repo": self.repo,
+                "change": change,
+                "integration_branch": "feat/x",
+                "integration_worktree": self.integration,
+                "phase": "build",
+                "status": status,
+                "events": [{"at": "2026-11-03T09:00:00-08:00", "what": "slices planned"}],
+                "slices": {},
+            },
+        )
+
+    def merged_slice(self, loop, slice):
+        path = self.new(slice, loop=loop)["worktree"]
+        self.commit(path, slice + ".txt", slice + "\n")
+        self.merge("gauntlet/%s/%s" % (loop, slice), into=self.integration)
+        return path
+
+    def test_new_reads_config_from_and_links_to_the_integration_worktree(self):
+        self.write_legacy("wiki-ask", "wiki-ask")
+        result = self.new("api", loop="wiki-ask")
+        path = result["worktree"]
+        self.assertEqual(path, os.path.join(self.home, "proj-wiki-ask-api"))
+        self.assertEqual(result["shared"], ["node_modules", "cache"])
+        self.assertEqual(result["base"], helpers.git(self.repo, "rev-parse", "feat/x"))
+        self.assertEqual(os.readlink(os.path.join(path, "node_modules")), os.path.join(self.integration, "node_modules"))
+        self.assertTrue(os.path.isfile(os.path.join(path, "node_modules", "integration-only.js")))
+        self.assertEqual(os.readlink(os.path.join(path, "cache")), os.path.join(self.integration, "cache"))
+        self.assertEqual(helpers.git(path, "status", "--porcelain"), "")
+
+    def test_rm_removes_the_clean_merged_integration_worktree(self):
+        self.write_legacy("wiki-ask", "wiki-ask")
+        self.merged_slice("wiki-ask", "api")
+        result = self.server.worktree_rm(loop="wiki-ask")
+        self.assertIn({"slice": None, "worktree": self.integration, "branch": "feat/x"}, result["removed"])
+        self.assertEqual(result["kept"], [])
+        self.assertNotIn(self.integration, self.worktree_paths())
+        self.assertIn(self.repo, self.worktree_paths())
+        self.assertIn("feat/x", self.branches())
+
+    def test_rm_keeps_the_integration_worktree_while_a_slice_is_kept(self):
+        self.write_legacy("wiki-ask", "wiki-ask")
+        self.merged_slice("wiki-ask", "api")
+        ui = self.new("ui", loop="wiki-ask")["worktree"]
+        self.commit(ui, "ui.txt", "ui\n")
+        result = self.server.worktree_rm(loop="wiki-ask")
+        kept = {entry["slice"]: entry for entry in result["kept"]}
+        self.assertEqual(set(kept), {"ui", None})
+        self.assertEqual(kept[None]["worktree"], self.integration)
+        self.assertEqual(kept[None]["reason"], "slices kept")
+        self.assertIn(self.integration, self.worktree_paths())
+
+    def test_running_legacy_loop_protects_its_integration_worktree_from_another_loops_rm(self):
+        self.write_legacy("wiki-ask", "wiki-ask")
+        self.server.loop_start(loop="pri", repo=self.integration, change="fix-pri", integration_branch="feat/x")
+        self.merged_slice("pri", "api")
+        result = self.server.worktree_rm(loop="pri")
+        kept = [entry for entry in result["kept"] if entry["slice"] is None]
+        self.assertEqual(len(kept), 1)
+        self.assertEqual(kept[0]["reason"], "repo of running loop wiki-ask")
+        self.assertIn(self.integration, self.worktree_paths())
+
+
 class WorktreeInterfacesTest(WorktreeTestCase):
     def test_stdio_calls_for_both_tools(self):
         self.start()
