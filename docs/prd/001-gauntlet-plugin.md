@@ -48,6 +48,7 @@ The gauntlet grew in one day out of loose files:
 1a. The same repo installs as a Claude Code plugin and marketplace, adding the agents delta, alpha, beta, gamma, and epsilon, which Agent Plugins 1.0.0 doesn't cover. Skills are shared by both formats, not duplicated.
 1b. Instructions refer to the agents by their installed names (for example `gauntlet:alpha`).
 2. Agents and skills find the template and the command inside the plugin, not by a path in the user's home folder.
+2a. All five agent definitions, including alpha and beta, are written as task directives, without personification, and keep their current behavior.
 
 ### Worktrees and loops
 
@@ -82,3 +83,4 @@ After installing, the agents and skills appear as today. Starting work is unchan
 4. Should loop cleanup run automatically after a loop's work is released, or only when asked? *Decided (2026-11-03): epsilon removes each slice's worktree and branch as soon as the slice is merged; the integration worktree and anything unmerged stay until the user runs `gauntlet worktree rm`; `gauntlet status` flags finished loops that still have worktrees.*
 5. How should agent names appear once namespaced? *Resolved by fact (2026-11-03): Claude Code namespaces plugin agents as `gauntlet:<name>`, and loose copies in `~/.claude/agents` take precedence, so instructions use the namespaced names (requirement 1b).*
 6. Which machines get it first (this Mac and the user's other machines), and does a Linux machine need anything different? *Decided (2026-11-03): this Mac first; the other machines once back on the home network, each after GitHub access for `callmeradical` is set up (gh login and setup-git, or a passphrase-free SSH key). Nothing is platform-specific; the README carries a per-machine install section.*
+7. Should alpha and beta, the user's original definitions, be rewritten as task directives like the others? *Decided (2026-11-03): yes; same behavior, wording reviewed against the originals.*
