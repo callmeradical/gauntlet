@@ -9,6 +9,16 @@ import helpers
 
 EXAMPLE = os.path.join(helpers.REPO_ROOT, "examples", "controltower.gauntlet.json")
 README = os.path.join(helpers.REPO_ROOT, "README.md")
+DOCS = os.path.join(helpers.REPO_ROOT, "docs")
+
+
+def read_documentation():
+    """The README plus the user docs in docs/, which the README links to."""
+    texts = [read(README)]
+    for name in sorted(os.listdir(DOCS)):
+        if name.endswith(".md"):
+            texts.append(read(os.path.join(DOCS, name)))
+    return "\n".join(texts)
 MARKETPLACE = os.path.join(helpers.REPO_ROOT, ".claude-plugin", "marketplace.json")
 PLUGIN_JSON = os.path.join(helpers.PLUGIN, "plugin.json")
 VENDORED_COMMIT = "4ae2317ddb22b046e26455e4f9c9b3aaaf62212d"
@@ -58,8 +68,8 @@ class ControlTowerExampleTest(ConfigReadMixin, unittest.TestCase):
 
 class ReadmeConfigBlocksTest(ConfigReadMixin, unittest.TestCase):
     def test_every_gauntlet_json_block_in_the_readme_is_accepted(self):
-        blocks = [b for b in re.findall(r"```json\n(.*?)```", read(README), re.S) if "integration_branch" in b]
-        self.assertTrue(blocks, "README shows no .gauntlet.json example")
+        blocks = [b for b in re.findall(r"```json\n(.*?)```", read(os.path.join(DOCS, "configuration.md")), re.S) if "integration_branch" in b]
+        self.assertTrue(blocks, "docs/configuration.md shows no .gauntlet.json example")
         for i, block in enumerate(blocks):
             with self.subTest(block=i):
                 self.config_read_text(block, name="proj%d" % i)
@@ -68,7 +78,7 @@ class ReadmeConfigBlocksTest(ConfigReadMixin, unittest.TestCase):
 class ReadmeTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.readme = read(README)
+        cls.readme = read_documentation()
 
     def test_install_uses_the_marketplace_and_plugin_names(self):
         marketplace = json.loads(read(MARKETPLACE))
