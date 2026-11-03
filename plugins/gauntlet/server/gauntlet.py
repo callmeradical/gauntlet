@@ -352,14 +352,134 @@ def worktree_rm(loop, slice=None):
 # ============================================================================
 
 
+import contextlib
+import fcntl
+
+LOCK_STALE = datetime.timedelta(minutes=30)
+
+
+def _lock_target(loop):
+    """(lock path, main worktree, integration branch) for the loop, from its state."""
+    state = load_loop(loop)
+    repo = state.get("repo") or state.get("integration_worktree")
+    branch = state.get("integration_branch")
+    if not (isinstance(repo, str) and repo and isinstance(branch, str) and branch):
+        raise GauntletError(
+            "unknown_loop",
+            "loop %r has no repo and integration branch in its state" % loop,
+            loop=loop,
+            reason="state has no repo or integration_branch",
+        )
+    main = main_worktree(repo)
+    name = "%s--%s.lock" % (os.path.basename(main), branch.replace("/", "%2F"))
+    return os.path.join(state_dir(), name), main, branch
+
+
+def _read_lock(path):
+    """The lock file's content plus `stale`, or None if there is no lock file.
+
+    An unreadable lock (for example one caught mid-write) has holder None and is dated by its mtime.
+    """
+    try:
+        with open(path, encoding="utf-8") as f:
+            text = f.read()
+        mtime = os.stat(path).st_mtime
+    except FileNotFoundError:
+        return None
+    try:
+        data = json.loads(text)
+    except ValueError:
+        data = None
+    if not isinstance(data, dict):
+        data = {"loop": None}
+    taken = _parse_time(data.get("acquired"))
+    if taken is None:
+        taken = datetime.datetime.fromtimestamp(mtime).astimezone()
+        data["acquired"] = taken.isoformat(timespec="seconds")
+    data["stale"] = datetime.datetime.now().astimezone() - taken >= LOCK_STALE
+    return data
+
+
+def _parse_time(value):
+    if not isinstance(value, str):
+        return None
+    try:
+        moment = datetime.datetime.fromisoformat(value[:-1] + "+00:00" if value.endswith("Z") else value)
+    except ValueError:
+        return None
+    return moment if moment.utcoffset() is not None else moment.astimezone()
+
+
+@contextlib.contextmanager
+def _locks_guard():
+    """Serialize lock operations across processes (flock on the state folder) so takeovers can't race."""
+    folder = state_dir()
+    os.makedirs(folder, exist_ok=True)
+    fd = os.open(folder, os.O_RDONLY)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        yield
+    finally:
+        os.close(fd)
+
+
+def _write_lock(path, content, replace):
+    """Create the lock file with O_CREAT|O_EXCL, or atomically replace one this call may take over."""
+    text = json.dumps(content, indent=2) + "\n"
+    if not replace:
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(text)
+        return
+    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path), prefix=".lock.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(text)
+        os.replace(tmp, path)
+    except BaseException:
+        os.unlink(tmp)
+        raise
+
+
 def lock_acquire(loop):
-    """Take the merge lock for the loop's repo and integration branch."""
-    raise GauntletError("not_implemented", "lock_acquire is not implemented yet")
+    """Take the merge lock for the loop's repo and integration branch.
+
+    Refused while another loop holds a lock younger than 30 minutes; a stale lock is taken over, and
+    the holder re-acquiring refreshes the time.
+    """
+    path, main, branch = _lock_target(loop)
+    with _locks_guard():
+        current = _read_lock(path)
+        if current is not None and current.get("loop") != loop and not current["stale"]:
+            raise GauntletError(
+                "lock_held",
+                "the merge lock for %s %s is held by loop %r since %s"
+                % (os.path.basename(main), branch, current.get("loop"), current["acquired"]),
+                holder=current.get("loop"),
+                acquired=current["acquired"],
+                lock=path,
+            )
+        content = {"loop": loop, "repo": main, "branch": branch, "acquired": now_iso()}
+        _write_lock(path, content, replace=current is not None)
+    return dict(content, lock=path)
 
 
 def lock_release(loop):
-    """Release the merge lock the loop holds."""
-    raise GauntletError("not_implemented", "lock_release is not implemented yet")
+    """Release the merge lock the loop holds; only the holder can release it."""
+    path, main, branch = _lock_target(loop)
+    with _locks_guard():
+        current = _read_lock(path)
+        if current is None or current.get("loop") != loop:
+            holder = current.get("loop") if current else None
+            raise GauntletError(
+                "not_holder",
+                "loop %r does not hold the merge lock for %s %s (holder: %s)"
+                % (loop, os.path.basename(main), branch, holder or "none"),
+                holder=holder,
+                lock=path,
+            )
+        os.unlink(path)
+    return {"released": True, "lock": path}
 
 
 # ============================================================================
@@ -367,9 +487,108 @@ def lock_release(loop):
 # ============================================================================
 
 
+def _read_git(path, *args):
+    """git output without taking optional locks (status never writes, not even an index refresh); None on failure."""
+    try:
+        return run_git(path, "--no-optional-locks", *args)
+    except GauntletError:
+        return None
+
+
+def _held_locks():
+    """{loop id: lock} for every readable lock file in the state folder."""
+    folder = state_dir()
+    try:
+        names = sorted(os.listdir(folder))
+    except OSError:
+        return {}
+    held = {}
+    for name in names:
+        path = os.path.join(folder, name)
+        if not name.endswith(".lock") or not os.path.isfile(path):
+            continue
+        try:
+            lock = _read_lock(path)
+        except OSError:
+            continue
+        if lock is not None and isinstance(lock.get("loop"), str):
+            entry = {"lock": path}
+            entry.update(lock)
+            held.setdefault(lock["loop"], entry)
+    return held
+
+
+def _integration_worktree(state):
+    """The loop's integration worktree: `integration_worktree`, else `repo` (legacy files keep the main
+    checkout in `repo`), as a real path; None if the state has neither."""
+    path = state.get("integration_worktree") or state.get("repo")
+    return os.path.realpath(path) if isinstance(path, str) else None
+
+
+def _loop_worktrees(state):
+    """(integration entry or None, slice entries) for the loop's worktrees that exist on disk.
+
+    The integration worktree is listed only when it is a linked worktree, never the main checkout.
+    """
+    integration = None
+    path = _integration_worktree(state)
+    if path and os.path.isdir(path):
+        try:
+            linked = main_worktree(path) != path
+        except GauntletError:
+            linked = False
+        if linked:
+            integration = {"name": "integration", "path": path, "branch": _worktree_branches(path).get(path)}
+    found = []
+    slices = state.get("slices")
+    for name, info in (slices.items() if isinstance(slices, dict) else ()):
+        worktree = info.get("worktree") if isinstance(info, dict) else None
+        if not isinstance(worktree, str) or not os.path.isdir(worktree):
+            continue
+        path = os.path.realpath(worktree)
+        branch = _worktree_branches(path).get(path) or info.get("branch")
+        found.append({"name": name, "path": path, "branch": branch})
+    return integration, found
+
+
+def _worktree_branches(path):
+    """{worktree path: branch} for the repo containing `path` (detached worktrees are left out)."""
+    listing = _read_git(path, "worktree", "list", "--porcelain") or ""
+    branches, current = {}, None
+    for line in listing.splitlines():
+        if line.startswith("worktree "):
+            current = os.path.realpath(line[len("worktree ") :])
+        elif line.startswith("branch refs/heads/") and current:
+            branches[current] = line[len("branch refs/heads/") :]
+    return branches
+
+
 def status():
-    """Every loop with its worktrees and lock; finished loops with leftovers are flagged."""
-    raise GauntletError("not_implemented", "status is not implemented yet")
+    """Every loop with its worktrees and lock; finished loops with leftovers are flagged. Never writes."""
+    loops = list_loops()
+    locks = _held_locks()
+    entries = []
+    for state in loops:
+        in_use = {_integration_worktree(o) for o in loops if o is not state and o.get("status") == "running"}
+        finished = state.get("status") in END_STATUSES
+        integration, slices = _loop_worktrees(state)
+        worktrees = ([integration] if integration else []) + slices
+        # Q1a: a finished loop's integration worktree is a leftover unless another running loop uses it.
+        leftover = finished and bool(slices or (integration and integration["path"] not in in_use))
+        entries.append(
+            {
+                "loop": state["loop"],
+                "repo": state.get("repo") or state.get("integration_worktree"),
+                "change": state.get("change"),
+                "phase": state.get("phase"),
+                "status": state.get("status"),
+                "finished": finished,
+                "leftover": leftover,
+                "worktrees": worktrees,
+                "lock": locks.get(state["loop"]),
+            }
+        )
+    return {"loops": entries}
 
 
 # ============================================================================
