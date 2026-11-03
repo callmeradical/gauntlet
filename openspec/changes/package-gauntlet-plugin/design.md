@@ -24,10 +24,12 @@ Today's sources: agents in `~/.claude/agents/{alpha,beta,gamma,delta,epsilon}.md
     mcp.json                               # Agent Plugins MCP: python3 ${PLUGIN_ROOT}/server/gauntlet.py
     .claude-plugin/plugin.json             # Claude Code manifest (name, version, description, mcpServers → ./.mcp.json)
     .mcp.json                              # Claude Code MCP: python3 ${CLAUDE_PLUGIN_ROOT}/server/gauntlet.py
-    agents/{alpha,beta,gamma,delta,epsilon}.md
+    agents/{alpha,beta,gamma,delta,epsilon,zeta}.md
     skills/intake/SKILL.md
     skills/gauntlet-loop/SKILL.md
     skills/gauntlet-loop/references/progress.html
+    skills/tdd/{SKILL.md,LICENSE,references/{tests,mocking}.md}
+    skills/codebase-design/{SKILL.md,LICENSE,references/{DEEPENING,DESIGN-IT-TWICE}.md}
     server/gauntlet.py
   docs/prd/, openspec/, README.md, scripts/cutover.py, tests/
   ```
@@ -36,6 +38,8 @@ Today's sources: agents in `~/.claude/agents/{alpha,beta,gamma,delta,epsilon}.md
 - **State.** `~/.local/state/gauntlet/<loop>.json` (schema version, id, repo, change, integration branch, integration worktree, phase, status, slices{name: {worktree, branch, status, round, commit, verdict}}, timestamps), written atomically (temp file + rename). Locks are `~/.local/state/gauntlet/<repo>--<branch>.lock` created with `O_EXCL`, holding loop id and time; stale after 30 minutes. Kept outside the plugin so updates and other clients share it.
 - **Worktrees.** `git -C <integration worktree> worktree add -b gauntlet/<loop>/<slice> <path> <integration-branch>`; shared folders are symlinked and added to the worktree's `info/exclude` (per-worktree git dir) so they're ignored without touching the project's `.gitignore`. Removal checks `git rev-list <integration>..<branch>` is empty, then `git worktree remove` and `git branch -d`.
 - **Agents.** Copied from today's definitions, then edited: `gauntlet:` names; epsilon calls the server's tools for loop/worktree/lock/cleanup, removes each slice's worktree after merge, reads checks and setup from `config_read`, and keeps the intake-gate preconditions; gamma reads the template at `${CLAUDE_PLUGIN_ROOT}/skills/gauntlet-loop/references/progress.html`; epsilon's frontmatter lists `Agent` among its tools. alpha and beta are de-personified to match the directive style (the user's rule for agent definitions).
+- **zeta and nesting depth.** alpha's frontmatter gains `Agent` in its tools, and its directive limits it to starting `gauntlet:zeta`; zeta's frontmatter omits `Agent`. The chain main → epsilon → alpha → zeta is three levels, Claude Code's default maximum, so zeta must never spawn. beta's tools omit `Agent`. Alternative considered: zeta as a skill alpha reads. Rejected: the user asked for an agent alpha can talk to, and a separate context keeps design advice from crowding alpha's build context.
+- **Third-party skills.** `tdd` and `codebase-design` are copied from `mattpocock/skills` at a recorded commit, with reference files moved to `references/` (Agent Skills layout) and links rewritten; each folder gets the MIT `LICENSE` and a source line in `SKILL.md`'s description footer. alpha's TDD text is one directive pointing at `tdd` plus the seam and refactor overrides; no summary.
 - **Cutover script** (`scripts/cutover.py`, standard library): refuses if `status` shows a running loop; backs up targets to `~/.local/state/gauntlet/cutover-<timestamp>/` with a manifest; removes the Claude Code loose copies; replaces other tools' copies with symlinks into the repo checkout; `--rollback <dir>` restores from the manifest. `--dry-run` prints the plan.
 - **PATH for the terminal.** README tells the user to link `~/.local/bin/gauntlet` to the repo's `server/gauntlet.py` (executable, `#!/usr/bin/env python3`).
 
