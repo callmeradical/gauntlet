@@ -73,12 +73,29 @@ def rule(agent, marker):
     return found[0]
 
 
-def section(agent, heading):
-    """The body text under a `## ` heading, up to the next one, with line wrapping collapsed."""
+def raw_section(agent, heading):
+    """The body text under a `## ` heading, up to the next one, as written."""
     match = re.search(r"^## %s\n(.*?)(?=^## |\Z)" % re.escape(heading), body(agent), re.MULTILINE | re.DOTALL)
     if match is None:
         raise AssertionError("%s.md has no '## %s' section" % (agent, heading))
-    return " ".join(match.group(1).split())
+    return match.group(1)
+
+
+def section(agent, heading):
+    """The body text under a `## ` heading, up to the next one, with line wrapping collapsed."""
+    return " ".join(raw_section(agent, heading).split())
+
+
+def step(agent, heading, marker):
+    """The one top-level numbered item of a section containing `marker`, line wrapping collapsed.
+
+    Indented sub-items and continuation paragraphs stay with their item.
+    """
+    items = [" ".join(i.split()) for i in re.split(r"\n(?=\d+\. )", raw_section(agent, heading))]
+    found = [i for i in items if re.match(r"\d+\. ", i) and marker.lower() in i.lower()]
+    if len(found) != 1:
+        raise AssertionError("%s.md '## %s': expected one step containing %r, found %d" % (agent, heading, marker, len(found)))
+    return found[0]
 
 
 class ScenarioTest(unittest.TestCase):
@@ -87,6 +104,38 @@ class ScenarioTest(unittest.TestCase):
     def assertSays(self, text, *phrases):
         for phrase in phrases:
             self.assertIn(phrase.lower(), text.lower())
+
+    def assertSaysInOrder(self, text, *phrases):
+        """Each phrase appears, and after the one before it."""
+        position = 0
+        for phrase in phrases:
+            found = text.lower().find(phrase.lower(), position)
+            self.assertGreaterEqual(found, 0, "%r not found after position %d in: %s" % (phrase, position, text))
+            position = found + len(phrase)
+
+    def test_epsilon_creates_a_slice(self):
+        """Tracer and fan-out each create the worktree with worktree_new, then run gauntlet:alpha in it."""
+        self.assertSaysInOrder(
+            step("epsilon", "Loop", "**Tracer.**"),
+            "create the tracer's worktree and branch with `worktree_new`",
+            "run `gauntlet:alpha` in it",
+        )
+        self.assertSaysInOrder(
+            step("epsilon", "Loop", "**Fan out.**"),
+            "create one worktree and branch per remaining slice with `worktree_new`",
+            "run one `gauntlet:alpha` per slice, in that slice's worktree",
+        )
+
+    def test_epsilon_merges_under_the_lock_then_removes_the_slice(self):
+        """Merge step: lock_acquire, merge, checks, lock_release, then worktree_rm for that slice."""
+        self.assertSaysInOrder(
+            step("epsilon", "Loop", "**Merge**"),
+            "take the merge lock with `lock_acquire`",
+            "merge the slice branch into the integration branch",
+            "run the full checks from `config_read`",
+            "release the lock with `lock_release`",
+            "remove that slice's worktree and branch right away with `worktree_rm` (loop, slice)",
+        )
 
     def test_refactor_request(self):
         """alpha refactors only on the critic's HOLD or the slice brief, suite green before and after."""

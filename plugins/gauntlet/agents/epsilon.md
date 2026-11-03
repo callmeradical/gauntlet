@@ -81,9 +81,9 @@ checks, and one-time setup step.
   after each merge and in the final run. Its `shared` folders are linked
   into each slice worktree by `worktree_new`.
 - **Setup.** Run the `setup` command, if any, once in the integration
-  worktree before the tracer starts, unless `status` shows another running
-  loop with the same `repo` (and so the same shared folders); then stop and
-  report it to the user.
+  worktree before the tracer starts. If `status` shows another running loop
+  with the same `repo` (and so the same shared folders), do not run setup:
+  stop the loop before the tracer and report it to the user.
 
 ## Loop
 
@@ -99,7 +99,8 @@ checks, and one-time setup step.
    (see Merge, below). Run `gauntlet:gamma` after each step.
 3. **Fan out.** After the tracer merge, create one worktree and branch per
    remaining slice with `worktree_new`. Run one `gauntlet:alpha` per slice,
-   all in parallel. When each finishes, run a fresh `gauntlet:beta`. Route
+   in that slice's worktree, all in parallel. When each finishes, run a
+   fresh `gauntlet:beta`. Route
    HOLD back to that slice's `gauntlet:alpha`; queue PASS for merging. Run
    `gauntlet:gamma` after each event.
 4. **Merge** PASSed slices one at a time in `gauntlet:delta`'s merge order.
