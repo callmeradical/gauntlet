@@ -56,9 +56,21 @@ class ZetaTextTest(unittest.TestCase):
         self.assertIn("gauntlet:alpha", body())
 
     def test_uses_codebase_design_vocabulary_but_not_its_sub_agent_pattern(self):
-        text = body()
-        self.assertIn("codebase-design", text)
-        self.assertIn("DESIGN-IT-TWICE", text)
+        text = " ".join(body().split())
+        self.assertRegex(text, r"Load the bundled `codebase-design` skill")
+        self.assertRegex(text, r"Use it for vocabulary only\.")
+        self.assertRegex(text, r"Never run its DESIGN-IT-TWICE pattern or any other step that starts sub-agents")
+        self.assertRegex(text, r"must not spawn\.")
+
+    def test_never_instructs_running_design_it_twice_or_starting_agents(self):
+        description = helpers.read_frontmatter(ZETA)["description"]
+        text = " ".join((description + "\n" + body()).split())
+        spawning = re.compile(r"DESIGN-IT-TWICE|sub-agents?|\bspawn|\bstart\w*\s+(\w+\s+)?agents?\b", re.IGNORECASE)
+        negated = re.compile(r"\b(never|not|no|don't)\b", re.IGNORECASE)
+        for clause in re.split(r"[.;]\s|:\s", text):
+            if spawning.search(clause):
+                with self.subTest(clause=clause):
+                    self.assertRegex(clause, negated)
 
 
 if __name__ == "__main__":
