@@ -60,6 +60,84 @@ def tools(agent):
     return {t.strip() for t in helpers.read_frontmatter(path(agent))["tools"].split(",") if t.strip()}
 
 
+def blocks(agent):
+    """The body split on blank lines, each block with its line wrapping collapsed to single spaces."""
+    return [" ".join(block.split()) for block in re.split(r"\n\s*\n", body(agent)) if block.strip()]
+
+
+def rule(agent, marker):
+    """The one block of the agent's body containing `marker` (case-insensitive); fails if there is none."""
+    found = [b for b in blocks(agent) if marker.lower() in b.lower()]
+    if len(found) != 1:
+        raise AssertionError("%s.md: expected one block containing %r, found %d" % (agent, marker, len(found)))
+    return found[0]
+
+
+def section(agent, heading):
+    """The body text under a `## ` heading, up to the next one, with line wrapping collapsed."""
+    match = re.search(r"^## %s\n(.*?)(?=^## |\Z)" % re.escape(heading), body(agent), re.MULTILINE | re.DOTALL)
+    if match is None:
+        raise AssertionError("%s.md has no '## %s' section" % (agent, heading))
+    return " ".join(match.group(1).split())
+
+
+class ScenarioTest(unittest.TestCase):
+    """One test per scenario of the slice, at its seam: the definition file the agent runs from."""
+
+    def assertSays(self, text, *phrases):
+        for phrase in phrases:
+            self.assertIn(phrase.lower(), text.lower())
+
+    def test_refactor_request(self):
+        """alpha refactors only on the critic's HOLD or the slice brief, suite green before and after."""
+        text = rule("alpha", "Refactor only on request")
+        self.assertSays(
+            text,
+            "refactor only when the critic's HOLD",
+            "or the slice brief asks for it",
+            "full suite green before the refactor and again after it",
+            "change nothing beyond what was asked",
+            "no speculative refactoring",
+        )
+
+    def test_missing_scenario_test(self):
+        """Every beta bar requires a test per scenario at its seam; a HOLD names the untested scenario."""
+        text = rule("beta", "Scenario coverage is part of every bar")
+        self.assertSays(
+            text,
+            "whether or not the bar says so",
+            "each scenario in the slice has a test at its seam",
+            "no test is tautological or coupled to implementation details",
+            "`tdd` skill",
+            "the HOLD names that scenario",
+        )
+
+    def test_hand_back_lists_questions(self):
+        """alpha knows when and how to start gauntlet:zeta, and lists its questions without zeta's reasoning."""
+        text = section("alpha", "Design questions: `gauntlet:zeta`")
+        self.assertSays(
+            text,
+            "neither the slice brief nor the codebase's existing patterns settle",
+            "start `gauntlet:zeta` with one specific question and the paths of the relevant files",
+            "`gauntlet:zeta` is the only agent to start",
+            "the decision stays here",
+            "in the hand-back, list each design question asked, without `gauntlet:zeta`'s reasoning",
+        )
+
+    def test_new_project(self):
+        """On config_missing epsilon returns the four questions and offers to write .gauntlet.json."""
+        text = rule("epsilon", "Missing config.")
+        self.assertSays(
+            text,
+            "when `loop_start` reports `config_missing`, do not guess",
+            "return to the caller the four questions",
+            "integration branch, shared folders, checks",
+            "and setup",
+            "offer to write `.gauntlet.json`",
+            "do not commit it",
+        )
+
+
 class FrontmatterTest(unittest.TestCase):
     def test_each_agent_is_named_after_its_file_and_described(self):
         for agent in AGENTS:
