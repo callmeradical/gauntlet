@@ -4,7 +4,7 @@
 
 The gauntlet uses separated roles to avoid rationalization in code construction (`alpha` builds test-first, `beta` reviews blind). However, during intake (`PRD → grilling → OpenSpec → gate`), the agent writing the OpenSpec change retains the accumulated context of the entire grilling conversation. It assumes knowledge that exists in the chat history but was never codified in the spec.
 
-This design introduces `gauntlet:eta` to audit specifications cold before any code worktree is spawned, and aligns critic criteria across both `beta` and `eta` using four orthogonal lenses adapted from the Elephant-Goldfish Model (EGM).
+This design introduces `gauntlet:eta` to audit specifications cold before any code worktree is spawned, and aligns critic criteria across both `beta` and `eta` using four orthogonal lenses adapted from orthogonal critic review frameworks.
 
 ## Decisions
 
@@ -37,7 +37,7 @@ Critics must state the failing lens in their `HOLD` and cannot reject on subject
 
 - **Auditing OpenSpec only without the PRD**: Rejected because an agent reviewing only the OpenSpec change cannot detect whether critical PRD requirements (`R*`) or settled human decisions (`D*`) were dropped by the architect.
 - **Making `eta` a step inside `delta`**: Rejected because `delta`'s job is planning vertical slices, not objective quality gating. Slicing an ambiguous spec produces flawed slices.
-- **Adopting EGM persona files directly**: Rejected because EGM's 8 persona files introduce external file dependencies and verbose prompt boilerplate. Embedding the four lenses directly into `beta.md` and `eta.md` maintains Gauntlet's minimal, task-directive architecture.
+- **Adopting external persona files directly**: Rejected because external persona files introduce external file dependencies and verbose prompt boilerplate. Embedding the four lenses directly into `beta.md` and `eta.md` maintains Gauntlet's minimal, task-directive architecture.
 
 ## Risks and Mitigation
 
