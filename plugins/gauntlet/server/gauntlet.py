@@ -221,9 +221,21 @@ def loop_start(loop, repo, change, integration_branch=None):
 
 
 def loop_update(
-    loop, phase=None, slice=None, worktree=None, branch=None, status=None, round=None, commit=None, verdict=None
+    loop,
+    phase=None,
+    slice=None,
+    worktree=None,
+    branch=None,
+    status=None,
+    round=None,
+    commit=None,
+    verdict=None,
+    handoff=None,
 ):
-    """Record the loop's phase and/or one slice's fields; unknown keys are preserved."""
+    """Record the loop's phase, one slice's fields and/or a handoff; unknown keys are preserved.
+
+    A handoff appends {path, at[, slice]} to the loop's `handoffs` list.
+    """
     values = dict(worktree=worktree, branch=branch, status=status, round=round, commit=commit, verdict=verdict)
     given = {key: values[key] for key in SLICE_FIELDS if values[key] is not None}
     state = load_loop(loop)
@@ -232,6 +244,11 @@ def loop_update(
         state.setdefault("slices", {}).setdefault(slice, {}).update(given)
     if phase is not None:
         state["phase"] = phase
+    if handoff is not None:
+        entry = {"path": handoff, "at": now_iso()}
+        if slice is not None:
+            entry["slice"] = slice
+        state.setdefault("handoffs", []).append(entry)
     return save_loop(state)
 
 
@@ -285,6 +302,27 @@ def _check_checks(value):
     return None
 
 
+HANDOFF_DEFAULTS = {"context_threshold": 0.65}
+
+
+def _check_handoff(value):
+    """The handoff settings with defaults filled in, and any problems keyed by dotted field."""
+    if not isinstance(value, dict):
+        return dict(HANDOFF_DEFAULTS), {"handoff": "must be an object"}
+    fields = {}
+    settings = dict(HANDOFF_DEFAULTS)
+    for key in value:
+        if key not in settings:
+            fields["handoff." + key] = "unknown field"
+    if "context_threshold" in value:
+        threshold = value["context_threshold"]
+        if isinstance(threshold, bool) or not isinstance(threshold, (int, float)) or not 0 < threshold < 1:
+            fields["handoff.context_threshold"] = "must be a number between 0 and 1 (exclusive)"
+        else:
+            settings["context_threshold"] = threshold
+    return settings, fields
+
+
 def config_read(repo):
     """Read and validate <repo>/.gauntlet.json; return {path, config} with defaults filled in."""
     path = os.path.join(os.path.realpath(repo), CONFIG_NAME)
@@ -322,6 +360,8 @@ def config_read(repo):
         if raw["setup"] is not None and not isinstance(raw["setup"], str):
             fields["setup"] = "must be a string or null"
         config["setup"] = raw["setup"]
+    config["handoff"], handoff_fields = _check_handoff(raw.get("handoff", {}))
+    fields.update(handoff_fields)
     for key in raw:
         if key not in config:
             fields[key] = "unknown field"
@@ -833,7 +873,8 @@ TOOLS = {
     ),
     "loop_update": (
         loop_update,
-        "Record a loop's phase and/or one slice's worktree, branch, status, round, latest commit and verdict.",
+        "Record a loop's phase and/or one slice's worktree, branch, status, round, latest commit and verdict, "
+        "and/or a handoff document's path.",
         _schema(
             {
                 "loop": LOOP_ARG,
@@ -845,6 +886,7 @@ TOOLS = {
                 "round": {"type": "integer", "description": "Review round."},
                 "commit": _string("Latest commit of the slice."),
                 "verdict": _string("Latest review verdict (PASS or HOLD)."),
+                "handoff": _string("Path of a handoff document; appended to the loop's handoffs (with the slice, if given)."),
             },
             ["loop"],
         ),
@@ -1037,7 +1079,7 @@ def build_parser():
     sub.add_argument("--integration-branch", dest="integration_branch", help="defaults to .gauntlet.json's")
     sub = leaf(loop, "update", "loop_update", "Record a loop's phase or a slice's fields.")
     sub.add_argument("loop")
-    for name in ("phase", "slice", "worktree", "branch", "status", "commit", "verdict"):
+    for name in ("phase", "slice", "worktree", "branch", "status", "commit", "verdict", "handoff"):
         sub.add_argument("--" + name)
     sub.add_argument("--round", type=int)
     sub = leaf(loop, "end", "loop_end", "End a loop.")

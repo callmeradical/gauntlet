@@ -180,7 +180,7 @@ class ProtocolTest(McpTestCase):
         expected = {
             "loop_start": ({"loop", "repo", "change", "integration_branch"}, {"loop", "repo", "change"}),
             "loop_update": (
-                {"loop", "phase", "slice", "worktree", "branch", "status", "round", "commit", "verdict"},
+                {"loop", "phase", "slice", "worktree", "branch", "status", "round", "commit", "verdict", "handoff"},
                 {"loop"},
             ),
             "loop_end": ({"loop", "status"}, {"loop", "status"}),

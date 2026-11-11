@@ -56,6 +56,7 @@ class ControlTowerExampleTest(ConfigReadMixin, unittest.TestCase):
                     {"name": "typecheck", "command": "npx tsc --noEmit -p src/renderer"},
                 ],
                 "setup": "npm run rebuild:node",
+                "handoff": {"context_threshold": 0.65},
             },
         )
 

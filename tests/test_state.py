@@ -231,6 +231,19 @@ class LoopUpdateTest(StateTestCase):
         self.assertEqual(saved["slices"]["next"], {"status": "building"})
         self.assertEqual(saved["phase"], "merge")
 
+    def test_handoffs_are_appended_with_time_and_slice(self):
+        self.start()
+        self.server.loop_update(loop="pri", handoff="/h/pri-epsilon-20261111-0900.md")
+        state = self.server.loop_update(loop="pri", slice="tracer", handoff="/h/pri-alpha-20261111-1000.md")
+        self.assertEqual(
+            [{k: v for k, v in h.items() if k != "at"} for h in state["handoffs"]],
+            [{"path": "/h/pri-epsilon-20261111-0900.md"}, {"path": "/h/pri-alpha-20261111-1000.md", "slice": "tracer"}],
+        )
+        for entry in state["handoffs"]:
+            self.assertTrue(is_iso_with_offset(entry["at"]))
+        self.assertEqual(state["slices"]["tracer"], {})
+        self.assertEqual(self.read_state("pri"), state)
+
     def test_update_stamps_updated(self):
         legacy = legacy_loop("old", self.repo, "fix-pri")
         self.write_state_file("old.json", legacy)
