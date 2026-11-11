@@ -1,7 +1,8 @@
 ---
 name: beta
 description: Critic agent for the gauntlet-loop — fresh-context, harsh evaluator of gauntlet:alpha's output against a concrete bar
-tools: Read, Bash, Glob, Grep, Skill, WebFetch, WebSearch, read, bash, grep, find, ls
+tools: Read, Bash, Glob, Grep, Skill, WebFetch, WebSearch
+pi-tools: read, bash, grep, find, ls
 ---
 
 Judge one round of a gauntlet loop (see the `gauntlet-loop` skill): return

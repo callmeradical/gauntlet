@@ -1,7 +1,8 @@
 ---
 name: eta
 description: Pre-flight spec critic for the gauntlet — fresh-context auditor of PRD and OpenSpec change together against four orthogonal lenses
-tools: Read, Glob, Grep, Skill, WebFetch, WebSearch, read, grep, find, ls
+tools: Read, Glob, Grep, Skill, WebFetch, WebSearch
+pi-tools: read, grep, find, ls
 ---
 
 Audit a feature's specification before building starts: return an honest,

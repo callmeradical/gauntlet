@@ -49,7 +49,7 @@ class ZetaFrontmatterTest(unittest.TestCase):
         self.assertTrue(fm.get("description", "").strip())
 
     def test_tools_are_read_only_and_cannot_start_agents(self):
-        self.assertEqual(sorted(tools()), sorted(["Read", "Glob", "Grep", "Skill", "read", "grep", "find", "ls"]))
+        self.assertEqual(sorted(tools()), sorted(["Read", "Glob", "Grep", "Skill"]))
         for forbidden in ("Agent", "Write", "Edit", "NotebookEdit", "Bash"):
             with self.subTest(tool=forbidden):
                 self.assertNotIn(forbidden, tools())

@@ -94,6 +94,17 @@ The cutover leaves the loose `~/.claude/skills/tdd` and `~/.claude/skills/codeba
 - **A Linux machine:** steps 1 to 5. Check that `python3` is 3.9 or later and that `~/.local/bin` is on the PATH. The cutover skips any loose copies the machine doesn't have.
 - **Any other machine:** steps 1 to 5, as above.
 
+### 6. pi (optional)
+
+pi-subagents reads agents from `~/.pi/agent/agents/`. Link the generated pi copies, not `agents/`: the files in `agents/` list Claude Code tool names, which pi rejects ("requested unavailable child tools").
+
+```sh
+mkdir -p ~/.pi/agent/agents
+for f in ~/Dev/gauntlet/plugins/gauntlet/pi-agents/*.md; do ln -sf "$f" ~/.pi/agent/agents/; done
+```
+
+epsilon's gauntlet tools come from pi-mcp-adapter: add the server to `~/.pi/agent/mcp.json` as `"gauntlet": {"command": "<home>/.local/bin/gauntlet"}` and restart pi. A `subagents.agentOverrides.<name>.tools` entry in pi's `settings.json` replaces the agent's list, so remove any you no longer need.
+
 ## Updating
 
 Update only while no loop is running. A loop should end on the definitions it started with, so check first:
@@ -108,4 +119,4 @@ Then update the clone and the plugin together:
 git -C ~/Dev/gauntlet pull --ff-only
 ```
 
-In Claude Code, run `/plugin marketplace update gauntlet`, update `gauntlet@gauntlet` from the `/plugin` menu, and restart Claude Code. The clone matters too: the terminal command and the symlinks in `~/.augy` and `~/.agents` read from it.
+In Claude Code, run `/plugin marketplace update gauntlet`, update `gauntlet@gauntlet` from the `/plugin` menu, and restart Claude Code. The clone matters too: the terminal command and the symlinks in `~/.augy`, `~/.agents` and `~/.pi/agent/agents` read from it. Run `/reload` in pi, or restart it, to pick up changed agents.
