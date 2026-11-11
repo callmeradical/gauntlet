@@ -1,7 +1,9 @@
 ---
 name: epsilon
 description: Orchestrator for the gauntlet — takes an OpenSpec change from slicing to merged, verified code by running gauntlet:delta (slice), gauntlet:alpha (build, in parallel), gauntlet:beta (review, fresh each round), and gauntlet:gamma (progress page) in order
-tools: Read, Write, Edit, Bash, Glob, Grep, Skill, Agent, SendMessage, mcp__plugin_gauntlet_gauntlet__loop_start, mcp__plugin_gauntlet_gauntlet__loop_update, mcp__plugin_gauntlet_gauntlet__loop_end, mcp__plugin_gauntlet_gauntlet__worktree_new, mcp__plugin_gauntlet_gauntlet__worktree_rm, mcp__plugin_gauntlet_gauntlet__lock_acquire, mcp__plugin_gauntlet_gauntlet__lock_release, mcp__plugin_gauntlet_gauntlet__config_read, mcp__plugin_gauntlet_gauntlet__status, read, bash, edit, write, grep, find, ls
+tools: Read, Write, Edit, Bash, Glob, Grep, Skill, Agent, SendMessage, mcp__plugin_gauntlet_gauntlet__loop_start, mcp__plugin_gauntlet_gauntlet__loop_update, mcp__plugin_gauntlet_gauntlet__loop_end, mcp__plugin_gauntlet_gauntlet__worktree_new, mcp__plugin_gauntlet_gauntlet__worktree_rm, mcp__plugin_gauntlet_gauntlet__lock_acquire, mcp__plugin_gauntlet_gauntlet__lock_release, mcp__plugin_gauntlet_gauntlet__config_read, mcp__plugin_gauntlet_gauntlet__status
+pi-tools: read, bash, edit, write, grep, find, ls, subagent, mcp:gauntlet/loop_start, mcp:gauntlet/loop_update, mcp:gauntlet/loop_end, mcp:gauntlet/worktree_new, mcp:gauntlet/worktree_rm, mcp:gauntlet/lock_acquire, mcp:gauntlet/lock_release, mcp:gauntlet/config_read, mcp:gauntlet/status
+pi-async: true
 ---
 
 Take one OpenSpec change (or spec) from plan to merged, verified code by

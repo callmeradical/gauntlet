@@ -40,7 +40,18 @@ Back to the [README](../README.md).
 
 **Context handoffs.** Every agent definition and the `gauntlet-loop` skill carry a "Context handoffs" rule. At `handoff.context_threshold` (default 0.65) of its context, a role stops at a clean point (finishes or reverts the step, restores temporary mutations, kills its own hung processes), writes a handoff with the `handoff` skill, and hands over to a successor of the same role, prompted only with "Continue from handoff <path>". Builders, critics, delta, gamma and zeta report the path to epsilon, which launches the successor and records it with `loop_update`; epsilon starts its own successor and records its handoff the same way. A critic about to hand off reports "incomplete" plus the path, never a verdict from partial evidence, and its successor redoes every bar item whose evidence is not recorded. Each handoff is announced in the coordination channel, if any.
 
-**Tool names.** Agents with a `tools` line list both the Claude Code names (`Read`, `Bash`, ...) and pi's lowercase built-ins (`read`, `bash`, `edit`, `write`, `grep`, `find`, `ls`), so they launch under pi-subagents too; read-only agents (eta, zeta) get only pi's read-only tools.
+**Tool names per harness.** Each harness gets only its own tool names. Claude Code reads `plugins/gauntlet/agents/*.md`: `tools:` lists Claude Code names (`Read`, `Bash`, `Agent`, `mcp__plugin_gauntlet_gauntlet__*`, ...). The same files carry pi's list in `pi-tools:` (and pi-only settings such as `pi-async:`), which Claude Code ignores. pi-subagents reads the generated copies in `plugins/gauntlet/pi-agents/*.md`, where each `pi-<key>` replaces `<key>`. `scripts/build_pi_agents.py` writes them; `--check` fails when they are stale, and the tests run it. Edit only `agents/`, then run the script.
+
+| Agent | Claude Code `tools` | pi `tools` |
+|---|---|---|
+| alpha | `Read, Write, Edit, Bash, Glob, Grep, Skill, WebFetch, WebSearch, Agent` | `read, bash, edit, write, grep, find, ls, subagent` |
+| beta | `Read, Bash, Glob, Grep, Skill, WebFetch, WebSearch` | `read, bash, grep, find, ls` |
+| eta | `Read, Glob, Grep, Skill, WebFetch, WebSearch` | `read, grep, find, ls` |
+| zeta | `Read, Glob, Grep, Skill` | `read, grep, find, ls` |
+| epsilon | `Read, Write, Edit, Bash, Glob, Grep, Skill, Agent, SendMessage`, `mcp__plugin_gauntlet_gauntlet__<tool>` for each server tool | `read, bash, edit, write, grep, find, ls, subagent`, `mcp:gauntlet/<tool>` for each server tool, and `async: true` |
+| gamma, delta | no `tools` line (all tools) | no `tools` line (pi's built-ins) |
+
+eta and zeta stay read-only on both harnesses: no shell, edit, write or agent tools. On pi, `mcp:gauntlet/<tool>` asks pi-subagents for pi-mcp-adapter's direct tool, registered as `gauntlet_<tool>` (`gauntlet_loop_start`, ...), from the `gauntlet` server in `~/.pi/agent/mcp.json`. pi loads MCP tools only in background children, hence epsilon's `async: true`. Skills load through pi's skill catalog, so pi needs no `Skill` tool. A pi `subagents.agentOverrides.<name>.tools` setting replaces an agent's list.
 
 Loop state and merge locks live in `~/.local/state/gauntlet/`, outside the plugin, so updates and every client share them.
 
@@ -53,9 +64,11 @@ plugins/gauntlet/
   plugin.json, mcp.json             Agent Plugins 1.0.0
   .claude-plugin/plugin.json        Claude Code manifest
   .mcp.json                         Claude Code MCP config
-  agents/                           the seven agents
+  agents/                           the seven agents (Claude Code; source of truth)
+  pi-agents/                        generated pi-subagents copies (scripts/build_pi_agents.py)
   skills/                           the five skills
   server/gauntlet.py                MCP server and CLI
+scripts/build_pi_agents.py          regenerates pi-agents/ from agents/ (--check: fail if stale)
 scripts/cutover.py                  switches a machine from loose copies to the plugin
 examples/controltower.gauntlet.json ControlTower's project config
 tests/                              python3 -m unittest discover -s tests

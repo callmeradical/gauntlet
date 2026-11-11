@@ -13,7 +13,7 @@ You need Claude Code, `python3` 3.9 or later, and git. `intake` also calls three
 /plugin install gauntlet@gauntlet
 ```
 
-Restart Claude Code. `/agents` lists seven `gauntlet:` agents and `/mcp` shows the `gauntlet` server. For the terminal command, moving off older loose copies, other machines, and updating, see [docs/install.md](docs/install.md).
+Restart Claude Code. `/agents` lists seven `gauntlet:` agents and `/mcp` shows the `gauntlet` server. On pi, link the generated agents in `plugins/gauntlet/pi-agents/` instead of `agents/` ([docs/install.md](docs/install.md#6-pi-optional)). For the terminal command, moving off older loose copies, other machines, and updating, see [docs/install.md](docs/install.md).
 
 ## How it works
 

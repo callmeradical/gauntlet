@@ -126,8 +126,10 @@ class RoleRuleTest(unittest.TestCase):
 
 
 class PiToolsTest(unittest.TestCase):
+    """The generated pi variants in plugins/gauntlet/pi-agents/ carry pi's names."""
+
     def tools(self, name):
-        meta = helpers.read_frontmatter(os.path.join(AGENTS_DIR, name + ".md"))
+        meta = helpers.read_frontmatter(os.path.join(helpers.PLUGIN, "pi-agents", name + ".md"))
         if "tools" not in meta:
             return None
         return {t.strip() for t in meta["tools"].split(",") if t.strip()}
@@ -152,8 +154,9 @@ class PiToolsTest(unittest.TestCase):
                 continue
             with self.subTest(agent=name):
                 mirrored = {"Read": "read", "Bash": "bash", "Edit": "edit", "Write": "write", "Grep": "grep", "Glob": "find"}
-                expected = {pi for claude, pi in mirrored.items() if claude in tools}
-                if "Glob" in tools:
+                claude = {t.strip() for t in helpers.read_frontmatter(os.path.join(AGENTS_DIR, name + ".md"))["tools"].split(",")}
+                expected = {pi for c, pi in mirrored.items() if c in claude}
+                if "Glob" in claude:
                     expected.add("ls")
                 self.assertEqual(tools & PI_TOOLS, expected)
 

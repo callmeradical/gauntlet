@@ -9,11 +9,14 @@ The checks, all of which must pass:
 ```sh
 python3 -m unittest discover -s tests -v
 /usr/bin/python3 -m unittest discover -s tests -v   # Python 3.9
-python3 -m py_compile plugins/gauntlet/server/gauntlet.py scripts/cutover.py
+python3 -m py_compile plugins/gauntlet/server/gauntlet.py scripts/cutover.py scripts/build_pi_agents.py
+python3 scripts/build_pi_agents.py --check   # pi-agents/ matches agents/
 openspec validate package-gauntlet-plugin --strict
 ```
 
 Tests use temp folders, temp git repos and a fake `HOME`, so they never touch your real `~/.claude` or `~/.local/state/gauntlet`. To try the plugin without installing it, run `claude --plugin-dir plugins/gauntlet`.
+
+After editing an agent in `plugins/gauntlet/agents/`, run `python3 scripts/build_pi_agents.py` to regenerate `plugins/gauntlet/pi-agents/`.
 
 ## Releasing
 

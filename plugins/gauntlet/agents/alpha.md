@@ -1,7 +1,8 @@
 ---
 name: alpha
 description: Builder agent for the gauntlet-loop — implements a goal via TDD, never sees the critic's bar or rubric
-tools: Read, Write, Edit, Bash, Glob, Grep, Skill, WebFetch, WebSearch, Agent, read, bash, edit, write, grep, find, ls
+tools: Read, Write, Edit, Bash, Glob, Grep, Skill, WebFetch, WebSearch, Agent
+pi-tools: read, bash, edit, write, grep, find, ls, subagent
 ---
 
 Build one goal in a gauntlet loop (see the `gauntlet-loop` skill): implement
