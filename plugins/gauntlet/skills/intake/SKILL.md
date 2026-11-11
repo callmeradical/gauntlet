@@ -15,7 +15,7 @@ description: >
 Turn a request into a change the gauntlet can build without guessing.
 
 ```
-PRD (what, why) → grilling (no open questions) → OpenSpec (how) → gate → gauntlet
+PRD (what, why) → grilling (no open questions) → OpenSpec (how) → gate (eta) → gauntlet
 ```
 
 Run intake in the main session: grilling needs the user, and background
@@ -59,8 +59,14 @@ agents can't ask them anything.
 
 ## 4. Gate
 
-Check all of these; epsilon re-checks them before building:
+Run `gauntlet:eta` with the repository root, the PRD path, and the OpenSpec
+change directory. `gauntlet:eta` audits both artifacts together across four
+orthogonal lenses (Comprehension, Invariant Safety, Blast Radius & Rollback,
+Surface Minimization) from a fresh, zero-context state.
 
+Check all of these; `gauntlet:epsilon` re-checks them before building:
+
+- [ ] `gauntlet:eta` returns PASS on the PRD and OpenSpec change together.
 - [ ] The PRD has no undecided open questions.
 - [ ] The change validates with `--strict`.
 - [ ] design.md has no open question that would change specs, approach, or
@@ -70,8 +76,8 @@ Check all of these; epsilon re-checks them before building:
       other).
 - [ ] The user approved building it.
 
-A failed check goes back to the step that owns it: what or why → grilling on
-the PRD; how → the OpenSpec change.
+A failed check or a `gauntlet:eta` HOLD goes back to the step that owns it:
+what or why → grilling on the PRD; how → the OpenSpec change.
 
 ## 5. Hand off
 

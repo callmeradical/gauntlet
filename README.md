@@ -13,12 +13,13 @@ You need Claude Code, `python3` 3.9 or later, and git. `intake` also calls three
 /plugin install gauntlet@gauntlet
 ```
 
-Restart Claude Code. `/agents` lists six `gauntlet:` agents and `/mcp` shows the `gauntlet` server. For the terminal command, moving off older loose copies, other machines, and updating, see [docs/install.md](docs/install.md).
+Restart Claude Code. `/agents` lists seven `gauntlet:` agents and `/mcp` shows the `gauntlet` server. For the terminal command, moving off older loose copies, other machines, and updating, see [docs/install.md](docs/install.md).
 
 ## How it works
 
 | Agent | Role |
 |---|---|
+| `gauntlet:eta` | Audits the PRD and OpenSpec change together before slicing |
 | `gauntlet:delta` | Slices an OpenSpec change into a tracer bullet plus vertical slices |
 | `gauntlet:alpha` | Builds one slice test-first in its own worktree |
 | `gauntlet:beta` | Reviews a slice with fresh context and returns PASS or HOLD |

@@ -20,6 +20,8 @@ Agents:
   `~/wiki/features/<project>-<loop>-progress.html` after every step.
 - **`gauntlet:zeta`:** design advisor that `gauntlet:alpha` starts itself.
   Do not start it, and never give it a critic bar.
+- **`gauntlet:eta`:** pre-flight critic that audits the PRD and OpenSpec change
+  together before slicing. Spawn fresh to verify the gate.
 
 The gauntlet server's tools do every loop, worktree, lock, and cleanup step:
 `loop_start`, `loop_update`, `loop_end`, `worktree_new`, `worktree_rm`,
@@ -31,6 +33,8 @@ write worktree, branch-deletion, lock-file, or state-file steps by hand.
 These are the intake gate (`intake` skill). Check them before starting; if
 any fails, stop and return which one to the caller:
 
+- Running `gauntlet:eta` on the PRD and OpenSpec change returns PASS. If
+  `gauntlet:eta` returns HOLD, stop and return the gap to the caller.
 - The change's PRD (linked from proposal.md) has no undecided open questions:
   each is marked *Decided* or resolved in its requirements.
 - `openspec validate <change> --strict` passes, and design.md has no open

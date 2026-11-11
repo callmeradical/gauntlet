@@ -37,6 +37,7 @@ their instructions inline.
 | **gauntlet:gamma** | Writes the progress page after every step | Facts: commits, verdicts, test results, merges | — |
 | **gauntlet:epsilon** | Orchestrates the full pipeline | The change, integration branch, loop id, environment | — |
 | **gauntlet:zeta** | Answers one design question for alpha; writes no code; only alpha starts it | alpha's question and the relevant files | The critic bar, beta's verdicts |
+| **gauntlet:eta** | Audits the PRD and OpenSpec change together before slicing; returns PASS or HOLD with the single biggest spec gap | The repository, PRD path, and OpenSpec change directory | Author reasoning, intake conversation |
 
 Never use general-purpose agents for building, reviewing, or slicing.
 
@@ -45,14 +46,14 @@ Never use general-purpose agents for building, reviewing, or slicing.
 Work enters the gauntlet only through the **intake** skill:
 
 ```
-PRD (what, why) → grilling (no open questions) → OpenSpec (how) → gate → gauntlet
+PRD (what, why) → grilling (no open questions) → OpenSpec (how) → gate (eta) → gauntlet
 ```
 
 Intake runs in the main session (grilling needs the user) and ends with a
-gate: no undecided PRD questions, a strictly valid change, no spec-changing
-open questions in design.md, a verification per task, PRD and change in
-agreement, and the user's go-ahead. epsilon re-checks the gate before
-building.
+gate: `gauntlet:eta` passes the PRD and OpenSpec change together, no undecided
+PRD questions, a strictly valid change, no spec-changing open questions in
+design.md, a verification per task, PRD and change in agreement, and the user's
+go-ahead. epsilon re-checks the gate (including `gauntlet:eta`) before building.
 
 Then choose the mode:
 
@@ -187,4 +188,4 @@ Add one at a time, only after the base loop converges.
 - [The Gauntlet Loop (Matt Shumer)](https://somethingbig.ai/gauntlet-loop)
 - **intake** skill: PRD → grilling → OpenSpec → gate
 - Agent definitions: the gauntlet plugin's
-  `gauntlet:{alpha,beta,gamma,delta,epsilon,zeta}`
+  `gauntlet:{alpha,beta,gamma,delta,epsilon,zeta,eta}`

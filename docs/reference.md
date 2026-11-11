@@ -4,10 +4,11 @@ Back to the [README](../README.md).
 
 ## Contents
 
-**Six agents** (Claude Code only), installed as `gauntlet:<name>`:
+**Seven agents** (Claude Code only), installed as `gauntlet:<name>`:
 
 | Agent | Role |
 |---|---|
+| `gauntlet:eta` | Audits the PRD and OpenSpec change together before slicing; returns PASS or HOLD with the single biggest gap. |
 | `gauntlet:delta` | Slices an OpenSpec change into a tracer bullet plus vertical slices, each with a builder brief and a critic bar. |
 | `gauntlet:alpha` | Builds one slice test-first in its own worktree. |
 | `gauntlet:beta` | Reviews a slice with fresh context against its bar and returns PASS or HOLD. |

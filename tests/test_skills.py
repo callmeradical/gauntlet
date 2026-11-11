@@ -11,7 +11,7 @@ import helpers
 
 SKILLS = os.path.join(helpers.PLUGIN, "skills")
 OWNED = ("intake", "gauntlet-loop")
-AGENTS = ("delta", "alpha", "beta", "gamma", "epsilon", "zeta")
+AGENTS = ("delta", "alpha", "beta", "gamma", "epsilon", "zeta", "eta")
 TEMPLATE = os.path.join(SKILLS, "gauntlet-loop", "references", "progress.html")
 # The server's error codes (shared contract); they share the tools' snake_case shape.
 ERROR_CODES = (
@@ -151,7 +151,7 @@ class AgentNamesTest(unittest.TestCase):
                 rows[match.group(1).strip("`")] = [cell.strip() for cell in match.group(2).split("|")]
         return rows
 
-    def test_agent_table_lists_all_six_agents_by_plugin_name(self):
+    def test_agent_table_lists_all_agents_by_plugin_name(self):
         self.assertEqual(set(self.agent_table()), {"gauntlet:" + a for a in AGENTS})
 
     def test_zeta_receives_alphas_question_and_never_betas_bar(self):

@@ -12,7 +12,7 @@ import unittest
 import helpers
 
 AGENTS_DIR = os.path.join(helpers.PLUGIN, "agents")
-AGENTS = ("alpha", "beta", "gamma", "delta", "epsilon")
+AGENTS = ("alpha", "beta", "gamma", "delta", "epsilon", "eta")
 ALL_AGENT_NAMES = AGENTS + ("zeta",)
 
 SERVER_TOOLS = (
@@ -32,6 +32,7 @@ MCP_PREFIX = "mcp__plugin_gauntlet_gauntlet__"
 EXPECTED_TOOLS = {
     "alpha": {"Read", "Write", "Edit", "Bash", "Glob", "Grep", "Skill", "WebFetch", "WebSearch", "Agent"},
     "beta": {"Read", "Bash", "Glob", "Grep", "Skill", "WebFetch", "WebSearch"},
+    "eta": {"Read", "Glob", "Grep", "Skill", "WebFetch", "WebSearch"},
     "epsilon": {"Read", "Write", "Edit", "Bash", "Glob", "Grep", "Skill", "Agent", "SendMessage"}
     | {MCP_PREFIX + tool for tool in SERVER_TOOLS},
 }
@@ -262,7 +263,7 @@ class EpsilonTest(unittest.TestCase):
                 self.assertIn("`%s`" % tool, body("epsilon"))
 
     def test_epsilon_starts_the_namespaced_agents(self):
-        for agent in ("delta", "alpha", "beta", "gamma"):
+        for agent in ("delta", "alpha", "beta", "gamma", "eta"):
             with self.subTest(agent=agent):
                 self.assertIn("`gauntlet:%s`" % agent, body("epsilon"))
 
