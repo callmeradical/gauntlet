@@ -4,7 +4,7 @@
 
 ## Summary
 
-Adds a seventh agent to the gauntlet fleet: **`gauntlet:eta`**, a stateless, zero-context pre-flight specification critic ("the spec goldfish"). `eta` operates at the gate between intake and execution, auditing the PRD (`docs/prd/*.md`) and the OpenSpec change (`openspec/changes/*`) **together** before `delta` slices or `epsilon` orchestrates. Additionally, updates `gauntlet:beta` (the code slice critic) with four non-overlapping evaluation lenses (Comprehension, Invariant Safety, Blast Radius & Rollback, Surface Minimization) to eliminate subjective nitpicks and focus HOLD verdicts on blocking flaws.
+Adds a seventh agent to the gauntlet fleet: **`gauntlet:eta`**, a stateless, zero-context pre-flight specification critic. `eta` operates at the gate between intake and execution, auditing the PRD (`docs/prd/*.md`) and the OpenSpec change (`openspec/changes/*`) **together** before `delta` slices or `epsilon` orchestrates. Additionally, updates `gauntlet:beta` (the code slice critic) with four non-overlapping evaluation lenses (Comprehension, Invariant Safety, Blast Radius & Rollback, Surface Minimization) to eliminate subjective nitpicks and focus HOLD verdicts on blocking flaws.
 
 ## Problem
 

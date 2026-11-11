@@ -245,5 +245,33 @@ class ProjectConfigTest(unittest.TestCase):
                 self.assertNotRegex(read(skill_md(name)), r"node_modules|native module|\bnpm\b|\bnpx\b")
 
 
+class IntakeSkillTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.text = read(skill_md("intake"))
+
+    def test_prd_authoring_requires_historical_retrieval(self):
+        self.assertRegex(self.text, r"(?is)docs/prd/.*openspec/changes/archive")
+        self.assertIn("settled decisions", self.text.lower())
+        self.assertIn("rejected alternatives", self.text.lower())
+
+    def test_intake_requires_pre_grilling_shootdown(self):
+        self.assertIn("shootdown", self.text.lower())
+        for dim in ("failure mode", "blast radius", "migration", "minimalism"):
+            self.assertIn(dim, self.text.lower())
+
+    def test_grilling_requires_multiple_choice_and_forbids_open_ended(self):
+        self.assertIn("multiple-choice", self.text.lower())
+        self.assertIn("(recommended)", self.text.lower())
+        self.assertRegex(self.text, r"(?is)open-ended questions?.*?(forbidden|disallowed|never)")
+
+    def test_superseding_settled_decisions_requires_explicit_attribution(self):
+        self.assertIn("`Supersedes: NNN/DX`", self.text)
+
+    def test_gate_checks_historical_consistency(self):
+        self.assertRegex(self.text, r"(?i)settled decisions?")
+        self.assertIn("gate", self.text.lower())
+
+
 if __name__ == "__main__":
     unittest.main()
