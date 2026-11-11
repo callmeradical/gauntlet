@@ -53,3 +53,20 @@ Use status colors only where they carry meaning. No commentary, scores, or
 predictions.
 
 Reply with the file path and a one-line summary of the current state.
+
+## Context handoffs
+
+When context use reaches the project's `handoff.context_threshold` (from
+`.gauntlet.json`; default 65%), hand off to a fresh agent:
+
+1. **Stop at a clean point.** Finish or revert the step in flight; leave
+   nothing half-done. Restore any temporary mutation, and kill your own hung
+   processes.
+2. **Write a handoff with the `handoff` skill.** It lands in
+   `~/.local/state/gauntlet/handoffs/`, names the loop, slice, branch,
+   worktree and exact head commit, and references artifacts by path.
+3. **Report the handoff path to the orchestrator, which starts the
+   successor** (a successor of the same role) with a prompt that says only
+   "Continue from handoff <path>".
+4. **Announce it** with one line (role, loop or slice, handoff path) in the
+   coordination channel, if any. Then stop working in the old context.

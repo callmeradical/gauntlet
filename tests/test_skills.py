@@ -10,7 +10,7 @@ import unittest
 import helpers
 
 SKILLS = os.path.join(helpers.PLUGIN, "skills")
-OWNED = ("intake", "gauntlet-loop")
+OWNED = ("intake", "gauntlet-loop", "handoff")
 AGENTS = ("delta", "alpha", "beta", "gamma", "epsilon", "zeta", "eta")
 TEMPLATE = os.path.join(SKILLS, "gauntlet-loop", "references", "progress.html")
 # The server's error codes (shared contract); they share the tools' snake_case shape.
@@ -169,7 +169,7 @@ class AgentNamesTest(unittest.TestCase):
 
     def test_agents_are_started_by_their_plugin_names(self):
         bare_start = re.compile(
-            r"(?i)\b(start|starts|spawn|run|delegate to)\s+\**(%s)\b" % "|".join(AGENTS)
+            r"(?i)\b(start|starts|spawn|run|delegate to)\s+\**(" + "|".join(AGENTS) + r")\b"
         )
         for name in OWNED:
             with self.subTest(skill=name):
@@ -192,7 +192,7 @@ class ServerToolsTest(unittest.TestCase):
         self.assertEqual(len(self.server.TOOLS), 9)
         for tool in self.server.TOOLS:
             with self.subTest(tool=tool):
-                self.assertIn("`%s`" % tool, self.text)
+                self.assertIn(f"`{tool}`", self.text)
 
     def test_every_tool_named_in_the_skills_exists_in_the_server(self):
         known = set(self.server.TOOLS) | set(ERROR_CODES)
@@ -210,7 +210,7 @@ class ServerToolsTest(unittest.TestCase):
                 try:
                     parser.parse_args(shlex.split(command))
                 except SystemExit:
-                    self.fail("`gauntlet %s` is not a valid CLI command" % command)
+                    self.fail(f"`gauntlet {command}` is not a valid CLI command")
 
     def test_running_loops_come_from_status_not_the_folder(self):
         self.assertNotRegex(self.text, r"(?i)list the folder")
@@ -221,7 +221,7 @@ class ServerToolsTest(unittest.TestCase):
         merge = [item for item in list_items(self.text) if "**Merge:**" in item]
         self.assertEqual(len(merge), 1)
         for tool in ("lock_acquire", "lock_release", "worktree_rm"):
-            self.assertIn("`%s`" % tool, merge[0])
+            self.assertIn(f"`{tool}`", merge[0])
 
     def test_integration_worktree_and_unmerged_slices_stay_for_the_user(self):
         self.assertRegex(self.text, r"(?is)integration worktree.{0,80}unmerged slices?.{0,40}stay")

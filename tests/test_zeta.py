@@ -34,7 +34,7 @@ def flat(text):
 
 def section(heading):
     """The flattened text under `## <heading>` up to the next heading; '' if absent."""
-    match = re.search(r"^## %s\n(.*?)(?=^## |\Z)" % re.escape(heading), body(), re.MULTILINE | re.DOTALL)
+    match = re.search(rf"^## {re.escape(heading)}\n(.*?)(?=^## |\Z)", body(), re.MULTILINE | re.DOTALL)
     return flat(match.group(1)) if match else ""
 
 
@@ -49,7 +49,7 @@ class ZetaFrontmatterTest(unittest.TestCase):
         self.assertTrue(fm.get("description", "").strip())
 
     def test_tools_are_read_only_and_cannot_start_agents(self):
-        self.assertEqual(sorted(tools()), sorted(["Read", "Glob", "Grep", "Skill"]))
+        self.assertEqual(sorted(tools()), sorted(["Read", "Glob", "Grep", "Skill", "read", "grep", "find", "ls"]))
         for forbidden in ("Agent", "Write", "Edit", "NotebookEdit", "Bash"):
             with self.subTest(tool=forbidden):
                 self.assertNotIn(forbidden, tools())
@@ -65,8 +65,8 @@ class ZetaTextTest(unittest.TestCase):
     def test_agents_are_named_with_the_plugin_prefix(self):
         description = helpers.read_frontmatter(ZETA)["description"]
         for text in (description, body()):
-            for match in re.finditer(r"(?<![\w:-])(%s)\b" % "|".join(AGENTS), text):
-                self.fail("bare agent name %r in: %r" % (match.group(1), text[max(0, match.start() - 40) : match.end() + 40]))
+            for match in re.finditer(r"(?<![\w:-])(" + "|".join(AGENTS) + r")\b", text):
+                self.fail(f"bare agent name {match.group(1)!r} in: {text[max(0, match.start() - 40) : match.end() + 40]!r}")
         self.assertIn("gauntlet:alpha", body())
 
     def test_uses_codebase_design_vocabulary_but_not_its_sub_agent_pattern(self):

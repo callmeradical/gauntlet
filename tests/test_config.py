@@ -46,6 +46,7 @@ class ConfigReadTest(unittest.TestCase):
                     "shared": ["node_modules"],
                     "checks": [{"name": "test", "command": "npx vitest run"}],
                     "setup": "npm run rebuild:node",
+                    "handoff": {"context_threshold": 0.65},
                 },
             },
         )
@@ -54,7 +55,13 @@ class ConfigReadTest(unittest.TestCase):
         repo = helpers.make_repo(self.home, "proj", config={"integration_branch": "main"})
         self.assertEqual(
             self.server.config_read(repo=repo)["config"],
-            {"integration_branch": "main", "shared": [], "checks": [], "setup": None},
+            {
+                "integration_branch": "main",
+                "shared": [],
+                "checks": [],
+                "setup": None,
+                "handoff": {"context_threshold": 0.65},
+            },
         )
 
     def test_shared_entries_are_normalised(self):
@@ -113,6 +120,34 @@ class ConfigReadTest(unittest.TestCase):
         self.assertIsNone(self.server.config_read(repo=repo)["config"]["setup"])
         repo = helpers.make_repo(self.home, "bad", config={"integration_branch": "main", "setup": ["npm ci"]})
         self.assertEqual(list(self.read_error(repo)["fields"]), ["setup"])
+
+    def test_handoff_threshold_is_read(self):
+        repo = helpers.make_repo(
+            self.home, "proj", config={"integration_branch": "main", "handoff": {"context_threshold": 0.5}}
+        )
+        self.assertEqual(self.server.config_read(repo=repo)["config"]["handoff"], {"context_threshold": 0.5})
+
+    def test_handoff_without_threshold_takes_the_default(self):
+        repo = helpers.make_repo(self.home, "proj", config={"integration_branch": "main", "handoff": {}})
+        self.assertEqual(self.server.config_read(repo=repo)["config"]["handoff"], {"context_threshold": 0.65})
+
+    def test_handoff_threshold_must_be_a_fraction(self):
+        for bad in (0, 1.5, -0.1, "0.6", True, None):
+            with self.subTest(value=bad):
+                repo = helpers.make_repo(
+                    self.home, f"p{abs(hash(repr(bad)))}", config={"integration_branch": "main", "handoff": {"context_threshold": bad}}
+                )
+                err = self.read_error(repo)
+                self.assertEqual(err["error"], "config_invalid")
+                self.assertIn("handoff.context_threshold", err["fields"])
+
+    def test_handoff_must_be_an_object_with_known_keys(self):
+        for bad, field in (("x", "handoff"), ({"threshold": 0.5}, "handoff.threshold")):
+            with self.subTest(value=bad):
+                repo = helpers.make_repo(
+                    self.home, f"p{abs(hash(repr(bad)))}", config={"integration_branch": "main", "handoff": bad}
+                )
+                self.assertIn(field, self.read_error(repo)["fields"])
 
     def test_all_bad_fields_are_reported_together(self):
         repo = helpers.make_repo(self.home, "proj", config={"shared": "x", "checks": "y", "extra": 1})

@@ -170,6 +170,28 @@ with the latest verdict (HOLD gaps verbatim), a timeline, and open items. It
 writes no other wiki file and never commits the wiki. In single-loop mode, run
 `gauntlet:gamma` at the end, or skip it for short tasks.
 
+## Context handoffs
+
+Every role hands off to a fresh agent of the same role when its context use
+reaches the project's `handoff.context_threshold` (`.gauntlet.json`, default
+65%):
+
+1. **Stop at a clean point**: finish or revert the step in flight, restore
+   temporary mutations, kill its own hung processes.
+2. **Write a handoff with the `handoff` skill** to
+   `~/.local/state/gauntlet/handoffs/`.
+3. **Successor.** Builders, critics, slicers, gamma and zeta report the path
+   to their orchestrator, which launches the successor of the same role with a
+   prompt that says only "Continue from handoff <path>". epsilon starts its own
+   successor the same way. Each handoff is recorded in the loop state with
+   `loop_update` with `handoff` (and the slice, for a slice's role).
+4. **Announce it** in the coordination channel, if any.
+
+A critic about to hand off never issues a verdict from partial evidence: it
+must report "incomplete" and the handoff path, and its successor redoes every
+bar item whose evidence is not recorded. "incomplete" is neither a PASS nor a
+HOLD and does not count as a round.
+
 ## After the loop
 
 - Report: what merged, rounds per slice, test and build results, beta's

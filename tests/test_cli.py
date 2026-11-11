@@ -53,6 +53,9 @@ class LoopCommandsTest(CliTestCase):
             {"worktree": "/w", "branch": "b", "status": "building", "round": 2, "commit": "abc", "verdict": "HOLD"},
         )
 
+        state = self.ok("loop", "update", "pri", "--handoff", "/h/pri-epsilon-20261111-0900.md")
+        self.assertEqual(state["handoffs"][-1]["path"], "/h/pri-epsilon-20261111-0900.md")
+
         state = self.ok("loop", "end", "pri", "done")
         self.assertEqual(state["status"], "done")
         with open(os.path.join(self.home, ".local", "state", "gauntlet", "pri.json")) as f:
@@ -88,7 +91,13 @@ class ConfigCommandTest(CliTestCase):
             self.ok("config", self.repo),
             {
                 "path": os.path.join(self.repo, ".gauntlet.json"),
-                "config": {"integration_branch": "main", "shared": ["node_modules"], "checks": [], "setup": None},
+                "config": {
+                    "integration_branch": "main",
+                    "shared": ["node_modules"],
+                    "checks": [],
+                    "setup": None,
+                    "handoff": {"context_threshold": 0.65},
+                },
             },
         )
 
@@ -137,7 +146,13 @@ class PathLinkTest(CliTestCase):
             json.loads(proc.stdout),
             {
                 "path": os.path.join(self.repo, ".gauntlet.json"),
-                "config": {"integration_branch": "main", "shared": ["node_modules"], "checks": [], "setup": None},
+                "config": {
+                    "integration_branch": "main",
+                    "shared": ["node_modules"],
+                    "checks": [],
+                    "setup": None,
+                    "handoff": {"context_threshold": 0.65},
+                },
             },
         )
 
