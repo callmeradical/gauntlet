@@ -26,8 +26,9 @@ Each project describes itself in a `.gauntlet.json` at its root, so the agents c
 | `shared` | list of relative paths | `[]` | Folders in the integration worktree to symlink into each slice worktree, such as `node_modules`. No absolute paths and no `..`. |
 | `checks` | list of `{"name", "command"}` | `[]` | The commands every slice must pass. Each entry has exactly these two non-empty strings. |
 | `setup` | string or `null` | `null` | A command to run once before a loop. |
+| `handoff` | object | `{"context_threshold": 0.65}` | Context handoff settings. `context_threshold` is the fraction of its context window (a number strictly between 0 and 1) at which a role hands off to a fresh agent of the same role with the `handoff` skill. No other keys. |
 
-Any other key is an error. The server reports errors by field (`config_invalid` with `fields`). To check a file, run `gauntlet config <repo>`.
+`config_read` always returns `handoff` with the default filled in. An invalid threshold or unknown key is reported as `handoff.context_threshold` or `handoff.<key>`. Any other top-level key is an error. The server reports errors by field (`config_invalid` with `fields`). To check a file, run `gauntlet config <repo>`.
 
 Shared folders are linked from the integration worktree and kept out of git through the repository's common `info/exclude` (found with `git rev-parse --git-path info/exclude`), using an anchored entry such as `/node_modules`. The project's `.gitignore` is never edited.
 

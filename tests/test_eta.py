@@ -23,7 +23,7 @@ class EtaTest(unittest.TestCase):
         meta = helpers.read_frontmatter(path)
         self.assertEqual(meta.get("name"), "eta")
         tools = {t.strip() for t in meta.get("tools", "").split(",") if t.strip()}
-        expected = {"Read", "Glob", "Grep", "Skill", "WebFetch", "WebSearch"}
+        expected = {"Read", "Glob", "Grep", "Skill", "WebFetch", "WebSearch", "read", "grep", "find", "ls"}
         self.assertEqual(tools, expected)
 
     def test_eta_audits_prd_and_openspec_together(self):

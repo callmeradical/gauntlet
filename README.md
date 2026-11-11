@@ -92,6 +92,10 @@ For a single, well-scoped task, skip epsilon and use the loop directly:
 
 alpha builds, a fresh beta judges against the bar, and HOLD feedback goes back to alpha until PASS.
 
+### Context handoffs
+
+Every role hands off to a fresh agent of the same role when its context reaches `handoff.context_threshold` in `.gauntlet.json` (default 0.65). It stops at a clean point, writes a handoff document with the bundled `handoff` skill to `~/.local/state/gauntlet/handoffs/`, and the successor starts with "Continue from handoff <path>". Builders and critics report the path to epsilon, which launches the successor; epsilon starts its own successor and records each handoff in the loop state (`gauntlet loop update <loop> --handoff <path>`). A critic that hands off reports "incomplete", never a verdict from partial evidence.
+
 ### Several loops at once
 
 Give each loop its own id. Loops never share an id, a change, a worktree, or a branch; merges into a shared integration branch take a lock, and `gauntlet status` shows who holds it. Update the plugin only while no loop is running.

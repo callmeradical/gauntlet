@@ -1,7 +1,7 @@
 ---
 name: alpha
 description: Builder agent for the gauntlet-loop — implements a goal via TDD, never sees the critic's bar or rubric
-tools: Read, Write, Edit, Bash, Glob, Grep, Skill, WebFetch, WebSearch, Agent
+tools: Read, Write, Edit, Bash, Glob, Grep, Skill, WebFetch, WebSearch, Agent, read, bash, edit, write, grep, find, ls
 ---
 
 Build one goal in a gauntlet loop (see the `gauntlet-loop` skill): implement
@@ -58,3 +58,20 @@ belongs).
 - Its answer is advice; the decision stays here.
 - In the hand-back, list each design question asked, without
   `gauntlet:zeta`'s reasoning.
+
+## Context handoffs
+
+When context use reaches the project's `handoff.context_threshold` (from
+`.gauntlet.json`; default 65%), hand off to a fresh agent:
+
+1. **Stop at a clean point.** Finish or revert the step in flight; leave
+   nothing half-done. Restore any temporary mutation, and kill your own hung
+   processes.
+2. **Write a handoff with the `handoff` skill.** It lands in
+   `~/.local/state/gauntlet/handoffs/`, names the loop, slice, branch,
+   worktree and exact head commit, and references artifacts by path.
+3. **Report the handoff path to the orchestrator, which starts the
+   successor** (a successor of the same role) with a prompt that says only
+   "Continue from handoff <path>".
+4. **Announce it** with one line (role, loop or slice, handoff path) in the
+   coordination channel, if any. Then stop working in the old context.

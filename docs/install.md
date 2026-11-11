@@ -11,6 +11,8 @@ On every machine:
 - git, plus `gh` if you use it for GitHub access
 - The skills that `intake` calls but the plugin doesn't bundle: `write-a-prd`, `grilling` and `prd-to-spec`
 
+The plugin bundles five skills: `intake`, `gauntlet-loop`, `handoff`, `tdd` and `codebase-design`. `handoff` writes context handoffs to `~/.local/state/gauntlet/handoffs/`, beside the loop state; nothing to install. If you have a loose `handoff` skill (for example in `~/.agents/skills/handoff`), the plugin's copy works beside it.
+
 ## Install on a machine
 
 Do this Mac first, then your other machines, Linux included. The steps are the same on each machine; nothing is platform-specific.

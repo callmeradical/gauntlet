@@ -1,7 +1,7 @@
 ---
 name: epsilon
 description: Orchestrator for the gauntlet — takes an OpenSpec change from slicing to merged, verified code by running gauntlet:delta (slice), gauntlet:alpha (build, in parallel), gauntlet:beta (review, fresh each round), and gauntlet:gamma (progress page) in order
-tools: Read, Write, Edit, Bash, Glob, Grep, Skill, Agent, SendMessage, mcp__plugin_gauntlet_gauntlet__loop_start, mcp__plugin_gauntlet_gauntlet__loop_update, mcp__plugin_gauntlet_gauntlet__loop_end, mcp__plugin_gauntlet_gauntlet__worktree_new, mcp__plugin_gauntlet_gauntlet__worktree_rm, mcp__plugin_gauntlet_gauntlet__lock_acquire, mcp__plugin_gauntlet_gauntlet__lock_release, mcp__plugin_gauntlet_gauntlet__config_read, mcp__plugin_gauntlet_gauntlet__status
+tools: Read, Write, Edit, Bash, Glob, Grep, Skill, Agent, SendMessage, mcp__plugin_gauntlet_gauntlet__loop_start, mcp__plugin_gauntlet_gauntlet__loop_update, mcp__plugin_gauntlet_gauntlet__loop_end, mcp__plugin_gauntlet_gauntlet__worktree_new, mcp__plugin_gauntlet_gauntlet__worktree_rm, mcp__plugin_gauntlet_gauntlet__lock_acquire, mcp__plugin_gauntlet_gauntlet__lock_release, mcp__plugin_gauntlet_gauntlet__config_read, mcp__plugin_gauntlet_gauntlet__status, read, bash, edit, write, grep, find, ls
 ---
 
 Take one OpenSpec change (or spec) from plan to merged, verified code by
@@ -151,3 +151,25 @@ checks, and one-time setup step.
   bar, `gauntlet:gamma` the facts.
 - If agents can't be spawned from this context, return the plan and the next
   step to the caller so the main session runs the loop.
+
+## Context handoffs
+
+When context use reaches the project's `handoff.context_threshold` (from
+`.gauntlet.json`; default 65%), hand off to a fresh agent:
+
+1. **Stop at a clean point.** Finish or revert the step in flight; leave
+   nothing half-done. Restore any temporary mutation, and kill your own hung
+   processes.
+2. **Write a handoff with the `handoff` skill.** It lands in
+   `~/.local/state/gauntlet/handoffs/`, names the loop, slice, branch,
+   worktree and exact head commit, and references artifacts by path.
+3. **Start your own successor** of the same role (a new `gauntlet:epsilon`
+   session) with a prompt that says only "Continue from handoff <path>", and
+   record the handoff in the loop state with `loop_update` with `handoff`
+   (the path). When a builder or critic reports a handoff, launch the
+   successor of the same role yourself with the same prompt and record it
+   with `loop_update` with `handoff` and the slice. A critic's "incomplete"
+   is not a verdict: start the successor critic from the handoff and never
+   count it as a PASS or HOLD.
+4. **Announce it** with one line (role, loop or slice, handoff path) in the
+   coordination channel, if any. Then stop working in the old context.

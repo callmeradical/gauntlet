@@ -28,12 +28,17 @@ SERVER_TOOLS = (
 )
 MCP_PREFIX = "mcp__plugin_gauntlet_gauntlet__"
 
+# pi's lowercase built-ins, listed alongside the Claude Code names so the agents launch on pi too.
+PI_READ = {"read", "grep", "find", "ls"}
+PI_RW = PI_READ | {"bash", "edit", "write"}
+
 # Decision Q8 in openspec/changes/package-gauntlet-plugin/slices.gauntlet-plugin.md.
 EXPECTED_TOOLS = {
-    "alpha": {"Read", "Write", "Edit", "Bash", "Glob", "Grep", "Skill", "WebFetch", "WebSearch", "Agent"},
-    "beta": {"Read", "Bash", "Glob", "Grep", "Skill", "WebFetch", "WebSearch"},
-    "eta": {"Read", "Glob", "Grep", "Skill", "WebFetch", "WebSearch"},
+    "alpha": {"Read", "Write", "Edit", "Bash", "Glob", "Grep", "Skill", "WebFetch", "WebSearch", "Agent"} | PI_RW,
+    "beta": {"Read", "Bash", "Glob", "Grep", "Skill", "WebFetch", "WebSearch"} | PI_READ | {"bash"},
+    "eta": {"Read", "Glob", "Grep", "Skill", "WebFetch", "WebSearch"} | PI_READ,
     "epsilon": {"Read", "Write", "Edit", "Bash", "Glob", "Grep", "Skill", "Agent", "SendMessage"}
+    | PI_RW
     | {MCP_PREFIX + tool for tool in SERVER_TOOLS},
 }
 
